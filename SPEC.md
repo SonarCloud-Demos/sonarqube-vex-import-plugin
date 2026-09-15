@@ -163,7 +163,11 @@ This is an **internal, unstable** SonarQube API — not publicly documented for 
 
 ### 4.3 `POST /api/v2/sca/issues-releases/bulk-change`
 
-Same semantics, batched. Its exact request/response contract wasn't independently verified against a live server during this plugin's development (doing so would have required a mutating call against real dependency-risk data). The plugin only ever calls it when every item in a batch shares the same `transitionKey` and `comment` — never speculatively — and treats any failure or unexpected shape as a signal to fall back to per-item `change-status` calls, which are known to work correctly regardless.
+Same semantics, batched: body `{ issueReleaseKeys: [...], transitionKey, comment }`, response is a JSON array of the updated risk objects. **Confirmed live** against a real SonarQube DataCenter Edition instance (`it/vex-smoke-test/`) — the shape matches exactly what this plugin sends. The plugin still only ever calls it when every item in a batch shares the same `transitionKey` and `comment` — never speculatively — and falls back to per-item `change-status` calls otherwise or on any failure, since a VEX import batch is commonly heterogeneous (different risks needing different transitions).
+
+### 4.3a Permission-scoped `transitions[]`
+
+`transitions[]` on a `GET /api/v2/sca/issues-releases` item is **scoped to the calling token's permissions**, not just the risk's workflow state — confirmed live: a token with only `scan`/`provisioning` (no Administer Issues) saw `["CONFIRM"]` for an OPEN risk, while an admin token saw `["ACCEPT","CONFIRM","SAFE"]` for the identical risk at the identical moment. This means the wizard and CLI correctly report fewer importable changes (or more "not importable — invalid transition" entries) for a less-privileged user, for the same VEX file — this is expected server behavior, not a plugin bug, and is worth explaining if a user reports "it says not importable but it should be."
 
 ### 4.4 CSRF
 
@@ -213,7 +217,7 @@ The parsing/mapping/matching logic is re-implemented in Python (two runtimes —
 |---|------|--------------|
 | 1 | Format scope | CycloneDX 1.6 JSON only. XML and CSAF VEX are out of scope for v1. |
 | 2 | Matching | Exact `(vulnerabilityId, packageUrl)` string equality, including version — no CycloneDX version-range (`affects[].versions[]`) interpretation. |
-| 3 | Bulk endpoint | `/api/v2/sca/issues-releases/bulk-change`'s exact contract wasn't independently verified live; the plugin is designed to fail safe into per-item calls if it misbehaves, but this should be smoke-tested against a real server early after install. |
+| 3 | Bulk endpoint | Confirmed live (see §4.3) — contract matches this plugin's implementation. The fail-safe fallback to per-item calls remains in place regardless, since a heterogeneous batch (the common case) never uses bulk in the first place. |
 | 4 | Internal API | Both write endpoints are internal/unstable — no guarantee they survive a SonarQube upgrade unchanged. |
 | 5 | Duplicate VEX entries | A second entry for the same `(vulnerabilityId, packageUrl)` in one file is silently blocked as a duplicate (first wins) rather than merged or reported as a file-level error. |
 | 6 | Scope | Project-level only, by design — no application/portfolio aggregation (dependency risks don't have a natural "main version" across branches the way issues do, so a cross-project import wouldn't have an unambiguous target). |

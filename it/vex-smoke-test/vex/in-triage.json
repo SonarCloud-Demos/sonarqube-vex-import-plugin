@@ -1,0 +1,13 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "vulnerabilities": [
+    {
+      "id": "CVE-2021-44228",
+      "affects": [{ "ref": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1" }],
+      "analysis": {
+        "state": "in_triage"
+      }
+    }
+  ]
+}

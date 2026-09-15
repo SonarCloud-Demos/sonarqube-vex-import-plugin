@@ -37,6 +37,10 @@ cp target/sonar-vex-import-plugin-*.jar $SONARQUBE_HOME/extensions/plugins/
 # Restart SonarQube
 ```
 
+## Testing against a real instance
+
+`it/vex-smoke-test/` is a disposable fixture — a one-file project analyzed on two branches via SBOM import, plus sample VEX files — for manually exercising the wizard and the CLI end to end against a real SonarQube instance. See `it/vex-smoke-test/README.md`.
+
 ## Command-line usage
 
 The companion script mirrors the wizard's logic for use from a script or CI pipeline:
