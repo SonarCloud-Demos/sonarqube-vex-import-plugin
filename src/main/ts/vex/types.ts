@@ -12,8 +12,8 @@ export interface CycloneDxAnalysis {
   justification?: string;
   response?: string[];
   detail?: string;
-  // Not part of the core CycloneDX 1.6 `analysis` schema, but seen in real-world
-  // exports (including SonarQube's own) — treated as optional/best-effort.
+  // Official CycloneDX fields (added in spec v1.5, carried into 1.6) — optional,
+  // so still treated as best-effort rather than assumed present.
   lastUpdated?: string;
   firstIssued?: string;
 }

@@ -130,8 +130,8 @@ step 5 (result) — per-item success/failure, flags any finalImportable item mis
 | `vulnerabilities[].analysis.justification` | string? | used in the generated fallback comment |
 | `vulnerabilities[].analysis.response[]` | string[]? | `will_not_fix` distinguishes ACCEPT from CONFIRM for `exploitable` |
 | `vulnerabilities[].analysis.detail` | string? | used verbatim as the comment when non-empty |
-| `vulnerabilities[].analysis.lastUpdated` | string? | not a core CycloneDX 1.6 field, but seen in real exports — highest-priority source for the VEX reference date (§3.5) |
-| `vulnerabilities[].analysis.firstIssued` | string? | not a core CycloneDX 1.6 field either — second-priority source for the VEX reference date (§3.5); confirmed present in SonarQube's own VEX export |
+| `vulnerabilities[].analysis.lastUpdated` | string? | official CycloneDX field (added in spec v1.5, present in 1.6) — highest-priority source for the VEX reference date (§3.5) |
+| `vulnerabilities[].analysis.firstIssued` | string? | official CycloneDX field, same v1.5+ origin — second-priority source for the VEX reference date (§3.5); confirmed present in SonarQube's own VEX export |
 | `metadata.timestamp` | string? | whole-document export/generation date — lowest-priority fallback for the VEX reference date (§3.5) |
 
 A single `vulnerabilities[]` entry with multiple `affects[]` produces one matching candidate per affected component.
