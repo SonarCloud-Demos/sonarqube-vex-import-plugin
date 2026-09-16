@@ -1,6 +1,6 @@
 /*
- * Clean as You Code Plugin
- * Copyright (C) 2022-2026 SonarSource Sàrl
+ * SonarQube VEX Import Plugin
+ * Copyright (C) 2026 SonarSource Sàrl
  * mailto:info AT sonarsource DOT com
  *
  * This program is free software; you can redistribute it and/or

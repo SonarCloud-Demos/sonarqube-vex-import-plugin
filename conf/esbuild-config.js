@@ -1,6 +1,6 @@
 /*
- * Clean as You Code Plugin
- * Copyright (C) 2022-2026 SonarSource Sàrl
+ * SonarQube VEX Import Plugin
+ * Copyright (C) 2026 SonarSource Sàrl
  * mailto:info AT sonarsource DOT com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-const TARGET_BROWSERS = ['chrome58', 'firefox57', 'safari11', 'edge18'];
+const TARGET_BROWSERS = ['chrome100', 'firefox100', 'safari15', 'edge100'];
 
 module.exports = (release) => ({
   entryPoints: [
