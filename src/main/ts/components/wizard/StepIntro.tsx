@@ -11,6 +11,30 @@ const cardStyle: React.CSSProperties = {
   lineHeight: '1.6',
 };
 
+const calloutStyle: React.CSSProperties = {
+  ...cardStyle,
+  background: '#fffbeb',
+  border: '1px solid #fde68a',
+  color: '#78350f',
+};
+
+const headingStyle: React.CSSProperties = {
+  fontSize: '14px',
+  fontWeight: 700,
+  color: '#1a1a1a',
+  marginBottom: '8px',
+};
+
+const calloutHeadingStyle: React.CSSProperties = {
+  ...headingStyle,
+  color: '#92400e',
+};
+
+const listStyle: React.CSSProperties = {
+  margin: '0 0 0 20px',
+  padding: 0,
+};
+
 const buttonStyle: React.CSSProperties = {
   padding: '8px 20px',
   fontSize: '13px',
@@ -30,38 +54,66 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
   return (
     <div>
       <div style={cardStyle}>
+        <div style={headingStyle}>What this does</div>
         <p>
           This wizard imports a <strong>VEX (Vulnerability Exploitability eXchange)</strong> file, in
-          CycloneDX 1.6 format, and updates the status of matching SonarQube dependency risks
-          (Open, Confirmed, Accepted, Safe, Fixed) to reflect it.
+          CycloneDX 1.6 format, and updates the status of matching SonarQube dependency risks (Open,
+          Confirmed, Accepted, Safe, Fixed) to reflect it.
         </p>
-        <p>
+        <p style={{ marginBottom: 0 }}>
           <strong>Only dependencies SonarQube actually detected</strong> on the selected project branch can
           be affected. A VEX entry for a component SonarQube hasn't found — or one requesting a status
           transition that isn't valid from the risk's current state — will be listed as not importable in
           the assessment step, with the reason why.
         </p>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={headingStyle}>The steps</div>
+        <ol style={listStyle}>
+          <li>Explain the workflow (this page).</li>
+          <li>Select a VEX file and the target branch.</li>
+          <li>Review an assessment of what will and won't change.</li>
+          <li>Resolve any conflicts (only shown if there are any — see below).</li>
+          <li>Approve and apply.</li>
+          <li>See the result.</li>
+        </ol>
+      </div>
+
+      <div style={calloutStyle}>
+        <div style={calloutHeadingStyle}>About dates, and why some entries need your decision</div>
         <p>
-          The steps are: explain the workflow (this page), select a VEX file and target branch, review an
-          assessment of what will and won't change, resolve any conflicts, approve and apply, then see the
-          result.
-        </p>
-        <p>
-          If a matched entry's SonarQube status was already changed manually more recently than the VEX
-          file's own date — or the file has no date to compare — it's treated as a <strong>conflict</strong>{' '}
-          needing your explicit decision, not applied automatically. Most VEX files don't carry that date
-          information at all, so if a project has seen much manual triage, expect a fair number of these; a
-          dedicated step lets you resolve them individually or all at once.
+          CycloneDX lets a VEX entry carry a date for its own analysis (<code>analysis.lastUpdated</code>,
+          or <code>analysis.firstIssued</code> as a fallback) — in principle, "this is our assessment as of
+          this date." This wizard reads that date, but <strong>SonarQube itself has no way to store it</strong>:
+          neither the underlying status-change API SonarQube offers, nor any other mechanism, accepts a
+          caller-supplied date. Every status change is timestamped with the server's clock at the moment
+          it's applied — a VEX file's own date can never be written back into SonarQube as a real,
+          backdated field. It only ever shows up as plain text inside the change's comment.
         </p>
         <p style={{ marginBottom: 0 }}>
-          Prefer to run this from a script or CI pipeline instead? Download the companion command-line
-          tool, which performs the same import against SonarQube's API:{' '}
+          Because of that, this wizard checks dates <strong>before</strong> writing anything, on your
+          behalf: if a matched risk's status was already changed manually in SonarQube more recently than
+          the VEX entry's own date — or the entry has no date at all to compare — it's treated as a{' '}
+          <strong>conflict</strong> and is <em>not</em> applied automatically. You decide, per entry or all
+          at once, whether to keep SonarQube's existing status or apply the VEX's anyway. Most VEX files
+          don't carry a date at all, so on a project with much manual triage history, expect to see a fair
+          number of these.
+        </p>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={headingStyle}>Prefer a script or CI pipeline?</div>
+        <p style={{ marginBottom: 0 }}>
+          Download the companion command-line tool, which performs the same import — including the same
+          conflict checks — directly against SonarQube's API:{' '}
           <a href="/static/veximport/vex-import.py" download>
             vex-import.py
           </a>
           .
         </p>
       </div>
+
       <button style={buttonStyle} onClick={onNext}>
         Next
       </button>
