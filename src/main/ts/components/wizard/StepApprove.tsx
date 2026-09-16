@@ -68,7 +68,7 @@ export function StepApprove({
           SonarQube, as shown in the previous step.
         </p>
 
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, margin: '12px 0 6px' }}>
+        <label htmlFor="vex-approve-comment" style={{ display: 'block', fontSize: '13px', fontWeight: 600, margin: '12px 0 6px' }}>
           Additional comment (optional)
         </label>
         <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px' }}>
@@ -76,6 +76,7 @@ export function StepApprove({
           file.
         </p>
         <textarea
+          id="vex-approve-comment"
           style={textareaStyle}
           value={userComment}
           disabled={applyLoading}

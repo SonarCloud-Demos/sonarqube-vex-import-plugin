@@ -109,8 +109,7 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           conflict checks — directly against SonarQube's API:{' '}
           <a href="/static/veximport/vex-import.py" download>
             vex-import.py
-          </a>
-          .
+          </a>.
         </p>
       </div>
 

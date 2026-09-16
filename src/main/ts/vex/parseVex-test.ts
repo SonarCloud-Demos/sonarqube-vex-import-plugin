@@ -9,6 +9,16 @@ function doc(overrides: Record<string, unknown> = {}): string {
   });
 }
 
+function candidateWith(analysis?: Record<string, unknown>, metadata?: Record<string, unknown>) {
+  const result = parseVex(
+    doc({
+      metadata,
+      vulnerabilities: [{ id: 'CVE-2024-1111', affects: [{ ref: 'pkg:npm/x@1' }], analysis }],
+    })
+  );
+  return result.candidates[0];
+}
+
 describe('parseVex', () => {
   it('rejects invalid JSON', () => {
     expect(() => parseVex('not json')).toThrow(VexParseError);
@@ -99,16 +109,6 @@ describe('parseVex', () => {
   });
 
   describe('vexReferenceDate', () => {
-    function candidateWith(analysis?: Record<string, unknown>, metadata?: Record<string, unknown>) {
-      const result = parseVex(
-        doc({
-          metadata,
-          vulnerabilities: [{ id: 'CVE-2024-1111', affects: [{ ref: 'pkg:npm/x@1' }], analysis }],
-        })
-      );
-      return result.candidates[0];
-    }
-
     it('prefers analysis.lastUpdated over firstIssued and document timestamp', () => {
       const c = candidateWith(
         { state: 'resolved', lastUpdated: '2026-03-01T00:00:00Z', firstIssued: '2026-01-01T00:00:00Z' },

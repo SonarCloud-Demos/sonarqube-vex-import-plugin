@@ -87,9 +87,7 @@ export function StepSelectFile({
   }, [projectKey]);
 
   function readFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => onFileSelected(file, String(reader.result ?? ''));
-    reader.readAsText(file);
+    file.text().then((text) => onFileSelected(file, text));
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
@@ -107,13 +105,14 @@ export function StepSelectFile({
   return (
     <div>
       <div style={cardStyle}>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+        <label htmlFor="vex-branch-select" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
           Target branch
         </label>
         {branchesLoading && <p style={{ fontSize: '13px', color: '#666' }}>Loading branches…</p>}
         {branchesError && <p style={{ fontSize: '13px', color: '#dc2626' }}>Error: {branchesError}</p>}
         {!branchesLoading && !branchesError && (
           <select
+            id="vex-branch-select"
             value={selectedBranch?.name ?? ''}
             onChange={(e) => {
               const branch = branches.find((b) => b.name === e.target.value);
@@ -130,7 +129,7 @@ export function StepSelectFile({
           </select>
         )}
 
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+        <label htmlFor="vex-file-input" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
           VEX file (CycloneDX 1.6 JSON)
         </label>
         <div
@@ -152,7 +151,14 @@ export function StepSelectFile({
           <button style={secondaryButtonStyle} onClick={() => fileInputRef.current?.click()}>
             Choose file
           </button>
-          <input ref={fileInputRef} type="file" accept=".json,application/json" onChange={handleFileInputChange} style={{ display: 'none' }} />
+          <input
+            id="vex-file-input"
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileInputChange}
+            style={{ display: 'none' }}
+          />
         </div>
 
         {parseError && <p style={{ fontSize: '13px', color: '#dc2626' }}>Error: {parseError}</p>}

@@ -70,7 +70,7 @@ describe('applyStatusChanges', () => {
     const urlsCalled = (global.fetch as jest.Mock).mock.calls.map((c) => c[0]);
     expect(urlsCalled).not.toContain('/api/v2/sca/issues-releases/bulk-change');
     expect(urlsCalled.every((u) => u === '/api/v2/sca/issues-releases/change-status')).toBe(true);
-    expect(results.sort((a, b) => a.issueReleaseKey.localeCompare(b.issueReleaseKey))).toEqual([
+    expect([...results].sort((a, b) => a.issueReleaseKey.localeCompare(b.issueReleaseKey))).toEqual([
       { issueReleaseKey: 'k1', ok: true },
       { issueReleaseKey: 'k2', ok: true },
     ]);
@@ -89,7 +89,7 @@ describe('applyStatusChanges', () => {
     const results = await applyStatusChanges(changes);
 
     expect(global.fetch).toHaveBeenCalledTimes(3); // 1 bulk attempt + 2 fallback calls
-    expect(results.sort((a, b) => a.issueReleaseKey.localeCompare(b.issueReleaseKey))).toEqual([
+    expect([...results].sort((a, b) => a.issueReleaseKey.localeCompare(b.issueReleaseKey))).toEqual([
       { issueReleaseKey: 'k1', ok: true },
       { issueReleaseKey: 'k2', ok: true },
     ]);
@@ -109,7 +109,7 @@ describe('applyStatusChanges', () => {
     });
 
     const results = await applyStatusChanges(changes);
-    expect(results.sort((a, b) => a.issueReleaseKey.localeCompare(b.issueReleaseKey))).toEqual([
+    expect([...results].sort((a, b) => a.issueReleaseKey.localeCompare(b.issueReleaseKey))).toEqual([
       { issueReleaseKey: 'k1', ok: true },
       { issueReleaseKey: 'k2', ok: false, error: 'HTTP 400 — comment required' },
     ]);

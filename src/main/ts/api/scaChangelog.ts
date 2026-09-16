@@ -70,8 +70,9 @@ export function findLastStatusChange(changelog: ChangelogEntry[]): LastStatusCha
     return undefined;
   }
 
-  const latest = statusEntries.reduce((max, entry) =>
-    Date.parse(entry.createdAt) >= Date.parse(max.createdAt) ? entry : max
+  const latest = statusEntries.reduce(
+    (max, entry) => (Date.parse(entry.createdAt) >= Date.parse(max.createdAt) ? entry : max),
+    statusEntries[0]
   );
 
   return {

@@ -1,5 +1,14 @@
 import { fetchIssueReleaseChangelog, findLastStatusChange, ChangelogEntry } from './scaChangelog';
 
+function entry(overrides: Partial<ChangelogEntry> = {}): ChangelogEntry {
+  return {
+    key: 'c1',
+    createdAt: '2026-01-01T00:00:00Z',
+    changeData: [{ fieldName: 'status', oldValue: 'OPEN', newValue: 'SAFE' }],
+    ...overrides,
+  };
+}
+
 describe('fetchIssueReleaseChangelog', () => {
   const originalFetch = global.fetch;
 
@@ -57,15 +66,6 @@ describe('fetchIssueReleaseChangelog', () => {
 });
 
 describe('findLastStatusChange', () => {
-  function entry(overrides: Partial<ChangelogEntry> = {}): ChangelogEntry {
-    return {
-      key: 'c1',
-      createdAt: '2026-01-01T00:00:00Z',
-      changeData: [{ fieldName: 'status', oldValue: 'OPEN', newValue: 'SAFE' }],
-      ...overrides,
-    };
-  }
-
   it('returns undefined for an empty changelog', () => {
     expect(findLastStatusChange([])).toBeUndefined();
   });

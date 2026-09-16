@@ -1,4 +1,4 @@
-import { CycloneDxAnalysis, CycloneDxDocument } from './types';
+import { CycloneDxAnalysis, CycloneDxDocument, CycloneDxVulnerability } from './types';
 
 export class VexParseError extends Error {}
 
@@ -32,16 +32,47 @@ function resolvePackageUrl(ref: string, componentsByBomRef: Map<string, string>)
   return componentsByBomRef.get(bomRef);
 }
 
-/**
- * Parses a CycloneDX 1.6 VEX document (JSON text) into a flat list of
- * (vulnerabilityId, packageUrl) candidates ready for matching against
- * SonarQube's detected dependency risks.
- *
- * Throws VexParseError for document-level problems that make the whole file
- * unusable. Per-vulnerability problems are collected into `issues` instead of
- * failing the whole import, since one malformed entry shouldn't block the rest.
- */
-export function parseVex(rawJsonText: string): VexParseResult {
+interface VulnerabilityParseResult {
+  candidates: VexCandidate[];
+  issues: VexParseIssue[];
+}
+
+/** Parses one vulnerabilities[] entry into its candidate(s)/issue(s) — split out of parseVex to keep that function's branching shallow. */
+function parseVulnerability(
+  vuln: CycloneDxVulnerability,
+  componentsByBomRef: Map<string, string>,
+  documentTimestamp: string | undefined
+): VulnerabilityParseResult {
+  const candidates: VexCandidate[] = [];
+  const issues: VexParseIssue[] = [];
+
+  if (!vuln.id) {
+    issues.push({ packageUrl: undefined, reason: 'missing vulnerability id (CVE)' });
+    return { candidates, issues };
+  }
+  if (!vuln.affects || vuln.affects.length === 0) {
+    issues.push({ vulnerabilityId: vuln.id, reason: 'no affected component reference in VEX entry' });
+    return { candidates, issues };
+  }
+
+  const vexReferenceDate = vuln.analysis?.lastUpdated ?? vuln.analysis?.firstIssued ?? documentTimestamp;
+
+  for (const affect of vuln.affects) {
+    const packageUrl = affect.ref ? resolvePackageUrl(affect.ref, componentsByBomRef) : undefined;
+    if (!packageUrl) {
+      issues.push({
+        vulnerabilityId: vuln.id,
+        reason: `could not resolve component reference "${affect.ref}" to a package URL`,
+      });
+      continue;
+    }
+    candidates.push({ vulnerabilityId: vuln.id, packageUrl, analysis: vuln.analysis, vexReferenceDate });
+  }
+
+  return { candidates, issues };
+}
+
+function parseDocument(rawJsonText: string): CycloneDxDocument {
   let doc: CycloneDxDocument;
   try {
     doc = JSON.parse(rawJsonText);
@@ -59,39 +90,41 @@ export function parseVex(rawJsonText: string): VexParseResult {
     throw new VexParseError('No vulnerabilities[] array found in this VEX document.');
   }
 
+  return doc;
+}
+
+function buildComponentsByBomRef(doc: CycloneDxDocument): Map<string, string> {
   const componentsByBomRef = new Map<string, string>();
   for (const component of doc.components ?? []) {
     if (component['bom-ref'] && component.purl) {
       componentsByBomRef.set(component['bom-ref'], component.purl);
     }
   }
+  return componentsByBomRef;
+}
 
+/**
+ * Parses a CycloneDX 1.6 VEX document (JSON text) into a flat list of
+ * (vulnerabilityId, packageUrl) candidates ready for matching against
+ * SonarQube's detected dependency risks.
+ *
+ * Throws VexParseError for document-level problems that make the whole file
+ * unusable. Per-vulnerability problems are collected into `issues` instead of
+ * failing the whole import, since one malformed entry shouldn't block the rest.
+ */
+export function parseVex(rawJsonText: string): VexParseResult {
+  const doc = parseDocument(rawJsonText);
+  const componentsByBomRef = buildComponentsByBomRef(doc);
   const documentTimestamp = doc.metadata?.timestamp;
+
   const candidates: VexCandidate[] = [];
   const issues: VexParseIssue[] = [];
 
-  for (const vuln of doc.vulnerabilities) {
-    if (!vuln.id) {
-      issues.push({ packageUrl: undefined, reason: 'missing vulnerability id (CVE)' });
-      continue;
-    }
-    if (!vuln.affects || vuln.affects.length === 0) {
-      issues.push({ vulnerabilityId: vuln.id, reason: 'no affected component reference in VEX entry' });
-      continue;
-    }
-
-    for (const affect of vuln.affects) {
-      const packageUrl = affect.ref ? resolvePackageUrl(affect.ref, componentsByBomRef) : undefined;
-      if (!packageUrl) {
-        issues.push({
-          vulnerabilityId: vuln.id,
-          reason: `could not resolve component reference "${affect.ref}" to a package URL`,
-        });
-        continue;
-      }
-      const vexReferenceDate = vuln.analysis?.lastUpdated ?? vuln.analysis?.firstIssued ?? documentTimestamp;
-      candidates.push({ vulnerabilityId: vuln.id, packageUrl, analysis: vuln.analysis, vexReferenceDate });
-    }
+  // doc.vulnerabilities is guaranteed an array by parseDocument's validation above.
+  for (const vuln of doc.vulnerabilities as CycloneDxVulnerability[]) {
+    const result = parseVulnerability(vuln, componentsByBomRef, documentTimestamp);
+    candidates.push(...result.candidates);
+    issues.push(...result.issues);
   }
 
   return { candidates, issues };
