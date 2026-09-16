@@ -212,15 +212,16 @@
           </execution>
           <execution>
             <phase>test</phase>
-            <id>npm test</id>
+            <id>yarn test</id>
             <goals>
               <goal>exec</goal>
             </goals>
             <configuration>
               <skip>${skipFrontendTests}</skip>
-              <executable>npm</executable>
+              <executable>node</executable>
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
+                <argument>.yarn/releases/yarn-3.4.1.cjs</argument>
                 <argument>test</argument>
                 <argument>--coverage</argument>
               </arguments>
