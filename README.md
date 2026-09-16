@@ -26,7 +26,7 @@ SonarQube ships VEX *export* today, but no in-product VEX *import*. This plugin 
 
 ## Administration
 
-An instance admin can disable the plugin instance-wide from **Administration → General Settings → VEX Import** ("Enable VEX Import"). Disabling it removes the project tab entirely for every project — this needs a SonarQube **restart** to take effect, since the page registry is only built at startup. A runtime check inside the page itself makes disabling effective immediately in the gap before that restart (and is defense-in-depth afterward): visiting the page directly while disabled shows a notice instead of the wizard.
+An instance admin can disable the plugin instance-wide from **Administration → General Settings → VEX Import** ("Enable VEX Import"). This takes effect **immediately, no restart needed** — every project's VEX Import tab shows a disabled notice instead of the wizard, and no API calls are made. The tab itself stays visible in the menu either way — SonarQube has no supported way to add or remove a menu entry after startup, so this plugin doesn't try; only the tab's content responds to the setting.
 
 ## Building
 
