@@ -133,6 +133,8 @@ step 5 (result) — per-item success/failure, flags any finalImportable item mis
 | `vulnerabilities[].analysis.lastUpdated` | string? | official CycloneDX field (added in spec v1.5, present in 1.6) — highest-priority source for the VEX reference date (§3.5) |
 | `vulnerabilities[].analysis.firstIssued` | string? | official CycloneDX field, same v1.5+ origin — second-priority source for the VEX reference date (§3.5); confirmed present in SonarQube's own VEX export |
 | `metadata.timestamp` | string? | whole-document export/generation date — lowest-priority fallback for the VEX reference date (§3.5) |
+| `metadata.authors[].name`/`.email` | string? | document author contact — appended to the comment as `(VEX contact: ...)` when present (§3.3) |
+| `metadata.supplier.name`, `metadata.supplier.contact[]` | string? | document supplier/organization contact — same treatment as `metadata.authors` |
 
 A single `vulnerabilities[]` entry with multiple `affects[]` produces one matching candidate per affected component.
 
@@ -152,7 +154,7 @@ A VEX candidate matches a detected dependency risk on **exact equality of `(vuln
 | `exploitable` | otherwise | `CONFIRM` |
 | `in_triage`, missing, or unrecognized | — | **blocked** — not actionable |
 
-Comment sent with the transition: `analysis.detail` trimmed, if non-empty; otherwise a generated fallback `VEX import: state=<state>[, justification=<justification>]`. This mapping table is duplicated in `cli/vex-import.py` (necessarily — two runtimes) and both copies are annotated `# KEEP IN SYNC WITH ...`; this table is the canonical reference for reviewing both.
+Comment sent with the transition: `analysis.detail` trimmed, if non-empty; otherwise a generated fallback `VEX import: state=<state>[, justification=<justification>]`. If the document's `metadata.authors`/`metadata.supplier` resolve to a non-empty contact string (built once per document — see `buildDocumentContact` in `parseVex.ts` / `build_document_contact` in `cli/vex-import.py`, name+email formatted as `Name <email>`, multiple authors/supplier contacts joined with `, `), it is appended to that comment as `" (VEX contact: <contact>)"`. This mapping table is duplicated in `cli/vex-import.py` (necessarily — two runtimes) and both copies are annotated `# KEEP IN SYNC WITH ...`; this table is the canonical reference for reviewing both.
 
 ### 3.4 Non-importable reasons
 
@@ -232,7 +234,7 @@ State: `step` (`WizardStep`, a named union — see §2), `selectedBranch`, `vexF
 
 ### `StepIntro`, `StepSelectFile`, `StepAssessment`, `StepApprove`, `StepResult` (`components/wizard/`)
 
-One component per wizard step, described in §2's data-flow diagram. `StepSelectFile` fetches long-lived branches itself via `fetchLongLivedBranches` (`api/projectBranches.ts`, unchanged from the plugin's previous incarnation), pre-selecting `branchLike?.name` when present, falling back to the project's main branch. `StepApprove` owns the optional additional-comment textarea and the explicit confirmation checkbox that gates the Apply button; wizard navigation is locked (no Back) while the apply call is in flight, to avoid leaving a partial-apply state abandoned mid-way.
+One component per wizard step, described in §2's data-flow diagram. `StepSelectFile` fetches long-lived branches itself via `fetchLongLivedBranches` (`api/projectBranches.ts`, unchanged from the plugin's previous incarnation), pre-selecting `branchLike?.name` when present, falling back to the project's main branch. `StepApprove` owns the optional additional-comment textarea and the explicit confirmation checkbox that gates the Apply button; wizard navigation is locked (no Back) while the apply call is in flight, to avoid leaving a partial-apply state abandoned mid-way. `StepIntro` includes a static "Field mapping" table (CycloneDX field → where it ends up, plus the full `analysis.state`/`response` → transition table from §3.3) as an at-a-glance reference — it duplicates §3.1/§3.3's content by design, for a reader who won't open this spec.
 
 ### `StepConflicts` (`components/wizard/StepConflicts.tsx`)
 

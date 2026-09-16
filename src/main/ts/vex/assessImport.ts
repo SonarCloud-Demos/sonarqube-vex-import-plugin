@@ -129,6 +129,8 @@ export async function assessImport(
       continue;
     }
 
+    const comment = candidate.vexContact ? `${mapping.comment} (VEX contact: ${candidate.vexContact})` : mapping.comment;
+
     provisional.push({
       item: {
         issueReleaseKey: risk.issueReleaseKey,
@@ -136,7 +138,7 @@ export async function assessImport(
         packageUrl: candidate.packageUrl,
         currentStatus: risk.status,
         transitionKey: mapping.transitionKey,
-        comment: mapping.comment,
+        comment,
       },
       vexReferenceDate: candidate.vexReferenceDate,
     });

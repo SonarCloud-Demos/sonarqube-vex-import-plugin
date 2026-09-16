@@ -132,4 +132,32 @@ describe('parseVex', () => {
       expect(c.vexReferenceDate).toBeUndefined();
     });
   });
+
+  describe('vexContact', () => {
+    it('formats a metadata.authors entry with name and email', () => {
+      const c = candidateWith({ state: 'resolved' }, { authors: [{ name: 'Jane Doe', email: 'jane@acme.com' }] });
+      expect(c.vexContact).toBe('Jane Doe <jane@acme.com>');
+    });
+
+    it('falls back to email alone when an author has no name', () => {
+      const c = candidateWith({ state: 'resolved' }, { authors: [{ email: 'jane@acme.com' }] });
+      expect(c.vexContact).toBe('jane@acme.com');
+    });
+
+    it('combines multiple authors and a supplier with its own contacts', () => {
+      const c = candidateWith(
+        { state: 'resolved' },
+        {
+          authors: [{ name: 'Jane Doe', email: 'jane@acme.com' }],
+          supplier: { name: 'Acme Corp', contact: [{ name: 'Security Team', email: 'security@acme.com' }] },
+        }
+      );
+      expect(c.vexContact).toBe('Jane Doe <jane@acme.com>, Acme Corp, Security Team <security@acme.com>');
+    });
+
+    it('is undefined when metadata has neither authors nor supplier', () => {
+      const c = candidateWith({ state: 'resolved' }, { timestamp: '2026-02-01T00:00:00Z' });
+      expect(c.vexContact).toBeUndefined();
+    });
+  });
 });

@@ -35,6 +35,25 @@ const listStyle: React.CSSProperties = {
   padding: 0,
 };
 
+const tableStyle: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: '12px',
+};
+
+const thStyle: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '6px 10px',
+  background: '#f3f4f4',
+  borderBottom: '2px solid #ddd',
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '6px 10px',
+  borderBottom: '1px solid #eee',
+  verticalAlign: 'top',
+};
+
 const buttonStyle: React.CSSProperties = {
   padding: '8px 20px',
   fontSize: '13px',
@@ -66,7 +85,7 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           transition that isn't valid from the risk's current state - will be listed as not importable in
           the assessment step, with the reason why.
         </p>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           Along with the status, each entry's <code>analysis.detail</code> (or, if absent,{' '}
           <code>analysis.state</code> and <code>analysis.justification</code>) is written into the status
           change's <strong>comment</strong> - SonarQube has no separate structured field for a VEX
@@ -74,6 +93,110 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           decides, for an <code>exploitable</code> entry, whether it becomes Accepted (
           <code>will_not_fix</code> is present) or Confirmed.
         </p>
+        <p style={{ marginBottom: 0 }}>
+          If the VEX file's <code>metadata.authors</code> or <code>metadata.supplier</code> identify who
+          issued it, that contact info is appended to the comment too, as{' '}
+          <code>(VEX contact: ...)</code> - so a reviewer looking at the change later knows who to ask
+          about the justification, not just what SonarQube itself recorded.
+        </p>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={headingStyle}>Field mapping</div>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>CycloneDX field</th>
+              <th style={thStyle}>Ends up as</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={tdStyle}>
+                <code>vulnerabilities[].id</code> + <code>affects[].ref</code> (resolved via{' '}
+                <code>components[].purl</code>)
+              </td>
+              <td style={tdStyle}>Used only to match a detected risk - never written anywhere</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>analysis.state</code>, <code>analysis.response</code>
+              </td>
+              <td style={tdStyle}>Status transition (Safe / Fixed / Accepted / Confirmed - see below)</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>analysis.detail</code> or <code>analysis.justification</code>
+              </td>
+              <td style={tdStyle}>Status-change comment</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>metadata.authors</code>, <code>metadata.supplier</code>
+              </td>
+              <td style={tdStyle}>
+                Appended to the comment as <code>(VEX contact: ...)</code>
+              </td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>analysis.lastUpdated</code>, <code>analysis.firstIssued</code>,{' '}
+                <code>metadata.timestamp</code>
+              </td>
+              <td style={tdStyle}>VEX reference date - conflict check only, never written to SonarQube</td>
+            </tr>
+          </tbody>
+        </table>
+        <table style={{ ...tableStyle, marginTop: '12px' }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>
+                <code>analysis.state</code>
+              </th>
+              <th style={thStyle}>condition</th>
+              <th style={thStyle}>SonarQube status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={tdStyle}>
+                <code>not_affected</code>, <code>false_positive</code>
+              </td>
+              <td style={tdStyle}>-</td>
+              <td style={tdStyle}>Safe</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>resolved</code>, <code>resolved_with_pedigree</code>
+              </td>
+              <td style={tdStyle}>-</td>
+              <td style={tdStyle}>Fixed</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>exploitable</code>
+              </td>
+              <td style={tdStyle}>
+                <code>response[]</code> includes <code>will_not_fix</code>
+              </td>
+              <td style={tdStyle}>Accepted</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>exploitable</code>
+              </td>
+              <td style={tdStyle}>otherwise</td>
+              <td style={tdStyle}>Confirmed</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>
+                <code>in_triage</code>, missing, or unrecognized
+              </td>
+              <td style={tdStyle}>-</td>
+              <td style={tdStyle}>not importable</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div style={cardStyle}>

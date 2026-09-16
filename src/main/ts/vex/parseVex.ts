@@ -1,4 +1,4 @@
-import { CycloneDxAnalysis, CycloneDxDocument, CycloneDxVulnerability } from './types';
+import { CycloneDxAnalysis, CycloneDxContact, CycloneDxDocument, CycloneDxVulnerability } from './types';
 
 export class VexParseError extends Error {}
 
@@ -10,6 +10,9 @@ export interface VexCandidate {
   // analysis.firstIssued, else the whole document's metadata.timestamp. undefined
   // when none of the three are present.
   vexReferenceDate?: string;
+  // Who to contact about this VEX statement, from the document's metadata.authors
+  // and/or metadata.supplier — undefined when neither is present.
+  vexContact?: string;
 }
 
 export interface VexParseIssue {
@@ -37,11 +40,38 @@ interface VulnerabilityParseResult {
   issues: VexParseIssue[];
 }
 
+function formatContact(contact: CycloneDxContact): string | undefined {
+  if (contact.name && contact.email) {
+    return `${contact.name} <${contact.email}>`;
+  }
+  return contact.name ?? contact.email ?? contact.phone ?? undefined;
+}
+
+/** Who to contact about this VEX statement, from metadata.authors and/or metadata.supplier — undefined when neither is present. */
+function buildDocumentContact(doc: CycloneDxDocument): string | undefined {
+  const parts: string[] = [];
+
+  for (const author of doc.metadata?.authors ?? []) {
+    const formatted = formatContact(author);
+    if (formatted) parts.push(formatted);
+  }
+
+  const supplier = doc.metadata?.supplier;
+  if (supplier?.name) parts.push(supplier.name);
+  for (const contact of supplier?.contact ?? []) {
+    const formatted = formatContact(contact);
+    if (formatted) parts.push(formatted);
+  }
+
+  return parts.length ? parts.join(', ') : undefined;
+}
+
 /** Parses one vulnerabilities[] entry into its candidate(s)/issue(s) — split out of parseVex to keep that function's branching shallow. */
 function parseVulnerability(
   vuln: CycloneDxVulnerability,
   componentsByBomRef: Map<string, string>,
-  documentTimestamp: string | undefined
+  documentTimestamp: string | undefined,
+  documentContact: string | undefined
 ): VulnerabilityParseResult {
   const candidates: VexCandidate[] = [];
   const issues: VexParseIssue[] = [];
@@ -66,7 +96,7 @@ function parseVulnerability(
       });
       continue;
     }
-    candidates.push({ vulnerabilityId: vuln.id, packageUrl, analysis: vuln.analysis, vexReferenceDate });
+    candidates.push({ vulnerabilityId: vuln.id, packageUrl, analysis: vuln.analysis, vexReferenceDate, vexContact: documentContact });
   }
 
   return { candidates, issues };
@@ -116,13 +146,14 @@ export function parseVex(rawJsonText: string): VexParseResult {
   const doc = parseDocument(rawJsonText);
   const componentsByBomRef = buildComponentsByBomRef(doc);
   const documentTimestamp = doc.metadata?.timestamp;
+  const documentContact = buildDocumentContact(doc);
 
   const candidates: VexCandidate[] = [];
   const issues: VexParseIssue[] = [];
 
   // doc.vulnerabilities is guaranteed an array by parseDocument's validation above.
   for (const vuln of doc.vulnerabilities as CycloneDxVulnerability[]) {
-    const result = parseVulnerability(vuln, componentsByBomRef, documentTimestamp);
+    const result = parseVulnerability(vuln, componentsByBomRef, documentTimestamp, documentContact);
     candidates.push(...result.candidates);
     issues.push(...result.issues);
   }

@@ -24,10 +24,25 @@ export interface CycloneDxVulnerability {
   analysis?: CycloneDxAnalysis;
 }
 
+export interface CycloneDxContact {
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface CycloneDxOrganizationalEntity {
+  name?: string;
+  contact?: CycloneDxContact[];
+}
+
 export interface CycloneDxDocument {
   bomFormat?: string;
   specVersion?: string;
   components?: CycloneDxComponent[];
   vulnerabilities?: CycloneDxVulnerability[];
-  metadata?: { timestamp?: string };
+  metadata?: {
+    timestamp?: string;
+    authors?: CycloneDxContact[];
+    supplier?: CycloneDxOrganizationalEntity;
+  };
 }

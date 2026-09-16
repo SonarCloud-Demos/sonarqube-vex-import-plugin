@@ -54,6 +54,24 @@ describe('assessImport', () => {
     ]);
   });
 
+  it('appends the VEX contact to the comment when the candidate carries one', async () => {
+    const result = await assessImport(
+      vex({
+        candidates: [
+          {
+            vulnerabilityId: 'CVE-2024-1111',
+            packageUrl: 'pkg:npm/express@4.19.2',
+            analysis: { state: 'not_affected', detail: 'safe' },
+            vexContact: 'Jane Doe <jane@acme.com>',
+          },
+        ],
+      }),
+      [risk()],
+      noHistory
+    );
+    expect(result.importable[0].comment).toBe('safe (VEX contact: Jane Doe <jane@acme.com>)');
+  });
+
   it('blocks a candidate with no matching detected risk', async () => {
     const result = await assessImport(vex(), [], noHistory);
     expect(result.importable).toEqual([]);

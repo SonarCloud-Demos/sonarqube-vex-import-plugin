@@ -86,7 +86,9 @@ def parse_vex(raw_text):
         if bom_ref and purl:
             components_by_bom_ref[bom_ref] = purl
 
-    document_timestamp = (doc.get('metadata') or {}).get('timestamp')
+    metadata = doc.get('metadata') or {}
+    document_timestamp = metadata.get('timestamp')
+    document_contact = build_document_contact(metadata)
 
     def resolve_package_url(ref):
         if ref.startswith('pkg:'):
@@ -126,9 +128,39 @@ def parse_vex(raw_text):
                 'package_url': package_url,
                 'analysis': vuln.get('analysis'),
                 'vex_reference_date': vex_reference_date,
+                'vex_contact': document_contact,
             })
 
     return candidates, issues
+
+
+def format_contact(contact):
+    name = (contact or {}).get('name')
+    email = (contact or {}).get('email')
+    if name and email:
+        return f'{name} <{email}>'
+    return name or email or (contact or {}).get('phone') or None
+
+
+def build_document_contact(metadata):
+    """Who to contact about this VEX statement, from metadata.authors and/or
+    metadata.supplier — None when neither is present."""
+    parts = []
+
+    for author in metadata.get('authors') or []:
+        formatted = format_contact(author)
+        if formatted:
+            parts.append(formatted)
+
+    supplier = metadata.get('supplier') or {}
+    if supplier.get('name'):
+        parts.append(supplier['name'])
+    for contact in supplier.get('contact') or []:
+        formatted = format_contact(contact)
+        if formatted:
+            parts.append(formatted)
+
+    return ', '.join(parts) if parts else None
 
 
 # --- Analysis -> transition mapping -------------------------------------------
@@ -259,6 +291,10 @@ def assess_import(candidates, issues, detected_risks, fetch_changelog):
                 'reason': f"transition {transition_key} is not valid from current status {risk['status']} for this risk",
             })
             continue
+
+        vex_contact = candidate.get('vex_contact')
+        if vex_contact:
+            comment = f'{comment} (VEX contact: {vex_contact})'
 
         provisional.append({
             'item': {
