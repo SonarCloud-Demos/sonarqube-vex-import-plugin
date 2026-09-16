@@ -60,11 +60,19 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           CycloneDX 1.6 format, and updates the status of matching SonarQube dependency risks (Open,
           Confirmed, Accepted, Safe, Fixed) to reflect it.
         </p>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           <strong>Only dependencies SonarQube actually detected</strong> on the selected project branch can
-          be affected. A VEX entry for a component SonarQube hasn't found — or one requesting a status
-          transition that isn't valid from the risk's current state — will be listed as not importable in
+          be affected. A VEX entry for a component SonarQube hasn't found - or one requesting a status
+          transition that isn't valid from the risk's current state - will be listed as not importable in
           the assessment step, with the reason why.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          Along with the status, each entry's <code>analysis.detail</code> (or, if absent,{' '}
+          <code>analysis.state</code> and <code>analysis.justification</code>) is written into the status
+          change's <strong>comment</strong> - SonarQube has no separate structured field for a VEX
+          justification, so this is the only place it ends up. <code>analysis.response</code> also
+          decides, for an <code>exploitable</code> entry, whether it becomes Accepted (
+          <code>will_not_fix</code> is present) or Confirmed.
         </p>
       </div>
 
@@ -74,7 +82,7 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           <li>Explain the workflow (this page).</li>
           <li>Select a VEX file and the target branch.</li>
           <li>Review an assessment of what will and won't change.</li>
-          <li>Resolve any conflicts (only shown if there are any — see below).</li>
+          <li>Resolve any conflicts (only shown if there are any - see below).</li>
           <li>Approve and apply.</li>
           <li>See the result.</li>
         </ol>
@@ -84,17 +92,17 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
         <div style={calloutHeadingStyle}>About dates, and why some entries need your decision</div>
         <p>
           CycloneDX lets a VEX entry carry a date for its own analysis (<code>analysis.lastUpdated</code>,
-          or <code>analysis.firstIssued</code> as a fallback) — in principle, "this is our assessment as of
+          or <code>analysis.firstIssued</code> as a fallback) - in principle, "this is our assessment as of
           this date." This wizard reads that date, but <strong>SonarQube itself has no way to store it</strong>:
           neither the underlying status-change API SonarQube offers, nor any other mechanism, accepts a
           caller-supplied date. Every status change is timestamped with the server's clock at the moment
-          it's applied — a VEX file's own date can never be written back into SonarQube as a real,
+          it's applied - a VEX file's own date can never be written back into SonarQube as a real,
           backdated field. It only ever shows up as plain text inside the change's comment.
         </p>
         <p style={{ marginBottom: 0 }}>
           Because of that, this wizard checks dates <strong>before</strong> writing anything, on your
           behalf: if a matched risk's status was already changed manually in SonarQube more recently than
-          the VEX entry's own date — or the entry has no date at all to compare — it's treated as a{' '}
+          the VEX entry's own date - or the entry has no date at all to compare - it's treated as a{' '}
           <strong>conflict</strong> and is <em>not</em> applied automatically. You decide, per entry or all
           at once, whether to keep SonarQube's existing status or apply the VEX's anyway. Most VEX files
           don't carry a date at all, so on a project with much manual triage history, expect to see a fair
@@ -105,12 +113,12 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
       <div style={calloutStyle}>
         <div style={calloutHeadingStyle}>There is no undo</div>
         <p style={{ marginBottom: 0 }}>
-          Once applied, a status change is just another SonarQube status change — there's no "restore
+          Once applied, a status change is just another SonarQube status change - there's no "restore
           previous status" API, and importing on a different branch is <em>not</em> a safety net: a status
           change made on another branch does not carry back onto a matching risk that already existed on
           your main branch when that branch merges. If you want to preview an import's effect before
-          committing to it on your real branch, run it once against a throwaway, never-merged branch —
-          analyzed independently first, since a new branch doesn't inherit main's detected risks for free —
+          committing to it on your real branch, run it once against a throwaway, never-merged branch -
+          analyzed independently first, since a new branch doesn't inherit main's detected risks for free -
           then apply for real once you're confident in the result.
         </p>
       </div>
@@ -118,8 +126,8 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
       <div style={cardStyle}>
         <div style={headingStyle}>Prefer a script or CI pipeline?</div>
         <p style={{ marginBottom: 0 }}>
-          Download the companion command-line tool, which performs the same import — including the same
-          conflict checks — directly against SonarQube's API:{' '}
+          Download the companion command-line tool, which performs the same import - including the same
+          conflict checks - directly against SonarQube's API:{' '}
           <a href="/static/veximport/vex-import.py" download>
             vex-import.py
           </a>.

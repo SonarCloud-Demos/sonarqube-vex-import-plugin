@@ -104,7 +104,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
       const changes = finalImportable.map((item) => ({
         issueReleaseKey: item.issueReleaseKey,
         transitionKey: item.transitionKey,
-        comment: trimmedUserComment ? `${item.comment} — ${trimmedUserComment}` : item.comment,
+        comment: trimmedUserComment ? `${item.comment} - ${trimmedUserComment}` : item.comment,
       }));
       const results = await applyStatusChanges(changes);
       setApplyResults(results);

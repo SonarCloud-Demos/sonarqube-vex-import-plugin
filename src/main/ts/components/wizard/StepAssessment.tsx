@@ -37,7 +37,7 @@ export interface StepAssessmentProps {
 
 export function StepAssessment({ loading, error, assessment, onBack, onNext }: Readonly<StepAssessmentProps>) {
   if (loading) {
-    return <p style={{ padding: '16px', color: '#666' }}>Fetching detected dependency risks…</p>;
+    return <p style={{ padding: '16px', color: '#666' }}>Fetching detected dependency risks...</p>;
   }
   if (error) {
     return (
@@ -61,7 +61,7 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
     <div>
       {conflicts.length > 0 && (
         <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}>
-          <strong>Needs a decision ({conflicts.length})</strong> — these entries would otherwise be importable, but
+          <strong>Needs a decision ({conflicts.length})</strong> - these entries would otherwise be importable, but
           SonarQube's status was changed manually more recently than this VEX file's own reference date (or the file
           has no date to compare). You'll resolve each one, individually or in bulk, in the next step.
         </div>
@@ -117,8 +117,8 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
             <tbody>
               {blocked.map((item, idx) => (
                 <tr key={`${item.vulnerabilityId ?? 'unknown'}-${item.packageUrl ?? 'unknown'}-${idx}`}>
-                  <td style={tdStyle}>{item.vulnerabilityId ?? '—'}</td>
-                  <td style={tdStyle}>{item.packageUrl ?? '—'}</td>
+                  <td style={tdStyle}>{item.vulnerabilityId ?? '-'}</td>
+                  <td style={tdStyle}>{item.packageUrl ?? '-'}</td>
                   <td style={tdStyle}>{item.reason}</td>
                 </tr>
               ))}

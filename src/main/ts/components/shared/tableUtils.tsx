@@ -1,6 +1,6 @@
 import React from 'react';
 
-// ── Shared styles ───────────────────────────────────────────────────────────
+// - Shared styles -
 
 export const thBase: React.CSSProperties = {
   textAlign: 'left', padding: '6px 10px', background: '#f3f4f4',
@@ -28,19 +28,19 @@ export const chipRow: React.CSSProperties = {
   display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '4px', maxWidth: '160px',
 };
 
-// ── Shared helpers ──────────────────────────────────────────────────────────
+// - Shared helpers -
 
 export function formatDate(iso?: string): string {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function sortArrow(field: string, sortBy: string, sortDir: 'asc' | 'desc'): string {
   if (sortBy !== field) return '';
-  return sortDir === 'asc' ? ' ↑' : ' ↓';
+  return sortDir === 'asc' ? ' ^' : ' v';
 }
 
-// ── Shared components ───────────────────────────────────────────────────────
+// - Shared components -
 
 export function Badge({ label, color }: Readonly<{ label: string; color: string }>) {
   return (

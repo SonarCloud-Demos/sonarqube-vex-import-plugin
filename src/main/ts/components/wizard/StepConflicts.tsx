@@ -34,7 +34,7 @@ const bulkButtonStyle: React.CSSProperties = {
   marginRight: '8px',
 };
 
-// tdStyle alone doesn't constrain wrapping — with table-layout: fixed and the
+// tdStyle alone doesn't constrain wrapping - with table-layout: fixed and the
 // colgroup widths above, this keeps long free text (comments, PURLs) wrapping
 // normally at word boundaries instead of overflowing or forcing the column
 // narrower than intended.
@@ -74,7 +74,7 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
         <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>
           SonarQube's current status was changed manually more recently than this VEX file's own reference date (or
           the file has no date to compare). Choose whether to keep SonarQube's current status or apply the VEX's
-          proposed status anyway — for all of them at once, or row by row. Unresolved rows default to{' '}
+          proposed status anyway - for all of them at once, or row by row. Unresolved rows default to{' '}
           <strong>keep SonarQube</strong>.
         </p>
 
@@ -126,7 +126,7 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
                       {formatDate(c.sonarLastChangeDate)}
                       {c.sonarLastChangeUser ? ` by ${c.sonarLastChangeUser}` : ''}
                     </td>
-                    <td style={wrapCellStyle}>{c.sonarLastChangeComment ?? '—'}</td>
+                    <td style={wrapCellStyle}>{c.sonarLastChangeComment ?? '-'}</td>
                     <td style={wrapCellStyle}>{c.item.transitionKey}</td>
                     <td style={wrapCellStyle}>{formatDate(c.vexReferenceDate)}</td>
                     <td style={wrapCellStyle}>{c.item.comment}</td>

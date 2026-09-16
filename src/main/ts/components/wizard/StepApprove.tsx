@@ -96,7 +96,7 @@ export function StepApprove({
         Back
       </button>
       <button style={disabledStyle(primaryButtonStyle, !confirmed || applyLoading)} onClick={onApply} disabled={!confirmed || applyLoading}>
-        {applyLoading ? 'Applying…' : 'Apply changes'}
+        {applyLoading ? 'Applying...' : 'Apply changes'}
       </button>
     </div>
   );

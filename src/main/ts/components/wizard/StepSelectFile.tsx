@@ -108,7 +108,7 @@ export function StepSelectFile({
         <label htmlFor="vex-branch-select" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
           Target branch
         </label>
-        {branchesLoading && <p style={{ fontSize: '13px', color: '#666' }}>Loading branches…</p>}
+        {branchesLoading && <p style={{ fontSize: '13px', color: '#666' }}>Loading branches...</p>}
         {branchesError && <p style={{ fontSize: '13px', color: '#dc2626' }}>Error: {branchesError}</p>}
         {!branchesLoading && !branchesError && (
           <select

@@ -46,7 +46,7 @@ export function StepResult({ finalImportable, results, onStartOver }: Readonly<S
         {missing.length > 0 && (
           <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '8px' }}>
             {missing.length} item{missing.length === 1 ? '' : 's'} assessed as importable did not get a result
-            back from the apply step — this shouldn't happen and may indicate a stale assessment; consider
+            back from the apply step - this shouldn't happen and may indicate a stale assessment; consider
             starting over.
           </p>
         )}
