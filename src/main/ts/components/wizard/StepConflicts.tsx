@@ -34,6 +34,12 @@ const bulkButtonStyle: React.CSSProperties = {
   marginRight: '8px',
 };
 
+// tdStyle alone doesn't constrain wrapping — with table-layout: fixed and the
+// colgroup widths above, this keeps long free text (comments, PURLs) wrapping
+// normally at word boundaries instead of overflowing or forcing the column
+// narrower than intended.
+const wrapCellStyle: React.CSSProperties = { ...tdStyle, wordBreak: 'break-word', overflowWrap: 'break-word' };
+
 export type ConflictResolution = 'keep' | 'apply';
 
 export interface StepConflictsProps {
@@ -81,48 +87,61 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
           </button>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={thBase}>CVE</th>
-              <th style={thBase}>Package</th>
-              <th style={thBase}>SonarQube: current status</th>
-              <th style={thBase}>SonarQube: last changed</th>
-              <th style={thBase}>SonarQube: comment</th>
-              <th style={thBase}>VEX: proposed status</th>
-              <th style={thBase}>VEX: reference date</th>
-              <th style={thBase}>VEX: comment</th>
-              <th style={thBase}>Resolution</th>
-            </tr>
-          </thead>
-          <tbody>
-            {conflicts.map((c) => {
-              const key = c.item.issueReleaseKey;
-              const resolution = resolutionFor(resolutions, key);
-              return (
-                <tr key={key}>
-                  <td style={tdStyle}>{c.item.vulnerabilityId}</td>
-                  <td style={tdStyle}>{c.item.packageUrl}</td>
-                  <td style={tdStyle}>{c.item.currentStatus}</td>
-                  <td style={tdStyle}>
-                    {formatDate(c.sonarLastChangeDate)}
-                    {c.sonarLastChangeUser ? ` by ${c.sonarLastChangeUser}` : ''}
-                  </td>
-                  <td style={tdStyle}>{c.sonarLastChangeComment ?? '—'}</td>
-                  <td style={tdStyle}>{c.item.transitionKey}</td>
-                  <td style={tdStyle}>{formatDate(c.vexReferenceDate)}</td>
-                  <td style={tdStyle}>{c.item.comment}</td>
-                  <td style={tdStyle}>
-                    <select value={resolution} onChange={(e) => setOne(key, e.target.value as ConflictResolution)}>
-                      <option value="keep">Keep SonarQube</option>
-                      <option value="apply">Apply VEX</option>
-                    </select>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '1300px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+            <colgroup>
+              <col style={{ width: '90px' }} />
+              <col style={{ width: '170px' }} />
+              <col style={{ width: '100px' }} />
+              <col style={{ width: '140px' }} />
+              <col style={{ width: '260px' }} />
+              <col style={{ width: '100px' }} />
+              <col style={{ width: '110px' }} />
+              <col style={{ width: '260px' }} />
+              <col style={{ width: '160px' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={thBase}>CVE</th>
+                <th style={thBase}>Package</th>
+                <th style={thBase}>SonarQube: current status</th>
+                <th style={thBase}>SonarQube: last changed</th>
+                <th style={thBase}>SonarQube: comment</th>
+                <th style={thBase}>VEX: proposed status</th>
+                <th style={thBase}>VEX: reference date</th>
+                <th style={thBase}>VEX: comment</th>
+                <th style={thBase}>Resolution</th>
+              </tr>
+            </thead>
+            <tbody>
+              {conflicts.map((c) => {
+                const key = c.item.issueReleaseKey;
+                const resolution = resolutionFor(resolutions, key);
+                return (
+                  <tr key={key}>
+                    <td style={wrapCellStyle}>{c.item.vulnerabilityId}</td>
+                    <td style={wrapCellStyle}>{c.item.packageUrl}</td>
+                    <td style={wrapCellStyle}>{c.item.currentStatus}</td>
+                    <td style={wrapCellStyle}>
+                      {formatDate(c.sonarLastChangeDate)}
+                      {c.sonarLastChangeUser ? ` by ${c.sonarLastChangeUser}` : ''}
+                    </td>
+                    <td style={wrapCellStyle}>{c.sonarLastChangeComment ?? '—'}</td>
+                    <td style={wrapCellStyle}>{c.item.transitionKey}</td>
+                    <td style={wrapCellStyle}>{formatDate(c.vexReferenceDate)}</td>
+                    <td style={wrapCellStyle}>{c.item.comment}</td>
+                    <td style={tdStyle}>
+                      <select value={resolution} onChange={(e) => setOne(key, e.target.value as ConflictResolution)}>
+                        <option value="keep">Keep SonarQube</option>
+                        <option value="apply">Apply VEX</option>
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <button style={secondaryButtonStyle} onClick={onBack}>
