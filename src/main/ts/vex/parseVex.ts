@@ -6,6 +6,10 @@ export interface VexCandidate {
   vulnerabilityId: string;
   packageUrl: string;
   analysis?: CycloneDxAnalysis;
+  // Best-effort "as of" date for this VEX statement — analysis.lastUpdated, else
+  // analysis.firstIssued, else the whole document's metadata.timestamp. undefined
+  // when none of the three are present.
+  vexReferenceDate?: string;
 }
 
 export interface VexParseIssue {
@@ -62,6 +66,7 @@ export function parseVex(rawJsonText: string): VexParseResult {
     }
   }
 
+  const documentTimestamp = doc.metadata?.timestamp;
   const candidates: VexCandidate[] = [];
   const issues: VexParseIssue[] = [];
 
@@ -84,7 +89,8 @@ export function parseVex(rawJsonText: string): VexParseResult {
         });
         continue;
       }
-      candidates.push({ vulnerabilityId: vuln.id, packageUrl, analysis: vuln.analysis });
+      const vexReferenceDate = vuln.analysis?.lastUpdated ?? vuln.analysis?.firstIssued ?? documentTimestamp;
+      candidates.push({ vulnerabilityId: vuln.id, packageUrl, analysis: vuln.analysis, vexReferenceDate });
     }
   }
 

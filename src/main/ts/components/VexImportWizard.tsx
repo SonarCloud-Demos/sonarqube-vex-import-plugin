@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { DetectedRisk, fetchDetectedRisks } from '../api/scaDetectedRisks';
+import { fetchDetectedRisks } from '../api/scaDetectedRisks';
 import { BranchInfo } from '../api/projectBranches';
 import { applyStatusChanges, StatusChangeResult } from '../api/scaChangeStatus';
-import { assessImport, AssessmentResult } from '../vex/assessImport';
+import { fetchIssueReleaseChangelog } from '../api/scaChangelog';
+import { assessImport, AssessmentResult, PlanItem } from '../vex/assessImport';
 import { parseVex, VexParseError, VexParseResult } from '../vex/parseVex';
 import { Disclaimer } from './shared/Disclaimer';
 import { StepIntro } from './wizard/StepIntro';
 import { StepSelectFile } from './wizard/StepSelectFile';
 import { StepAssessment } from './wizard/StepAssessment';
+import { StepConflicts, ConflictResolution } from './wizard/StepConflicts';
 import { StepApprove } from './wizard/StepApprove';
 import { StepResult } from './wizard/StepResult';
 
@@ -27,19 +29,21 @@ export interface VexImportWizardProps {
   branchLike?: BranchLike;
 }
 
-export type WizardStep = 1 | 2 | 3 | 4 | 5;
+export type WizardStep = 'intro' | 'selectFile' | 'assessment' | 'conflicts' | 'approve' | 'result';
 
 export function VexImportWizard({ component, branchLike }: Readonly<VexImportWizardProps>) {
-  const [step, setStep] = useState<WizardStep>(1);
+  const [step, setStep] = useState<WizardStep>('intro');
 
   const [selectedBranch, setSelectedBranch] = useState<BranchInfo | null>(null);
   const [vexFile, setVexFile] = useState<File | null>(null);
   const [parsedVex, setParsedVex] = useState<VexParseResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  const [detectedRisks, setDetectedRisks] = useState<DetectedRisk[] | null>(null);
-  const [detectedRisksLoading, setDetectedRisksLoading] = useState(false);
-  const [detectedRisksError, setDetectedRisksError] = useState<string | null>(null);
+  const [assessment, setAssessment] = useState<AssessmentResult | null>(null);
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+
+  const [conflictResolutions, setConflictResolutions] = useState<Map<string, ConflictResolution>>(new Map());
 
   const [userComment, setUserComment] = useState('');
 
@@ -47,10 +51,13 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applyResults, setApplyResults] = useState<StatusChangeResult[] | null>(null);
 
-  const assessment: AssessmentResult | null = useMemo(() => {
-    if (!parsedVex || !detectedRisks) return null;
-    return assessImport(parsedVex, detectedRisks);
-  }, [parsedVex, detectedRisks]);
+  const finalImportable: PlanItem[] = useMemo(() => {
+    if (!assessment) return [];
+    const resolvedConflicts = assessment.conflicts
+      .filter((c) => (conflictResolutions.get(c.item.issueReleaseKey) ?? 'keep') === 'apply')
+      .map((c) => c.item);
+    return [...assessment.importable, ...resolvedConflicts];
+  }, [assessment, conflictResolutions]);
 
   function handleFileSelected(file: File, rawText: string) {
     setVexFile(file);
@@ -64,34 +71,44 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
   }
 
   async function goToAssessment() {
-    if (!selectedBranch) return;
-    setStep(3);
-    setDetectedRisksLoading(true);
-    setDetectedRisksError(null);
+    if (!selectedBranch || !parsedVex) return;
+    setStep('assessment');
+    setAssessmentLoading(true);
+    setAssessmentError(null);
+    setAssessment(null);
+    setConflictResolutions(new Map());
     try {
       const risks = await fetchDetectedRisks(component.key, selectedBranch.name);
-      setDetectedRisks(risks);
+      const result = await assessImport(parsedVex, risks, fetchIssueReleaseChangelog);
+      setAssessment(result);
     } catch (e) {
-      setDetectedRisksError(e instanceof Error ? e.message : String(e));
+      setAssessmentError(e instanceof Error ? e.message : String(e));
     } finally {
-      setDetectedRisksLoading(false);
+      setAssessmentLoading(false);
     }
   }
 
+  function goFromAssessment() {
+    setStep(assessment && assessment.conflicts.length > 0 ? 'conflicts' : 'approve');
+  }
+
+  function goBackFromApprove() {
+    setStep(assessment && assessment.conflicts.length > 0 ? 'conflicts' : 'assessment');
+  }
+
   async function handleApply() {
-    if (!assessment) return;
     setApplyLoading(true);
     setApplyError(null);
     try {
       const trimmedUserComment = userComment.trim();
-      const changes = assessment.importable.map((item) => ({
+      const changes = finalImportable.map((item) => ({
         issueReleaseKey: item.issueReleaseKey,
         transitionKey: item.transitionKey,
         comment: trimmedUserComment ? `${item.comment} — ${trimmedUserComment}` : item.comment,
       }));
       const results = await applyStatusChanges(changes);
       setApplyResults(results);
-      setStep(5);
+      setStep('result');
     } catch (e) {
       setApplyError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -100,12 +117,13 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
   }
 
   function handleStartOver() {
-    setStep(1);
+    setStep('intro');
     setVexFile(null);
     setParsedVex(null);
     setParseError(null);
-    setDetectedRisks(null);
-    setDetectedRisksError(null);
+    setAssessment(null);
+    setAssessmentError(null);
+    setConflictResolutions(new Map());
     setUserComment('');
     setApplyResults(null);
     setApplyError(null);
@@ -125,9 +143,9 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
       <Disclaimer />
       <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '24px', color: '#1a1a1a' }}>VEX Import</h1>
 
-      {step === 1 && <StepIntro onNext={() => setStep(2)} />}
+      {step === 'intro' && <StepIntro onNext={() => setStep('selectFile')} />}
 
-      {step === 2 && (
+      {step === 'selectFile' && (
         <StepSelectFile
           projectKey={component.key}
           branchLikeName={branchLike?.name}
@@ -137,35 +155,45 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
           canProceed={Boolean(vexFile && parsedVex && selectedBranch)}
           onFileSelected={handleFileSelected}
           onBranchSelected={setSelectedBranch}
-          onBack={() => setStep(1)}
+          onBack={() => setStep('intro')}
           onNext={goToAssessment}
         />
       )}
 
-      {step === 3 && (
+      {step === 'assessment' && (
         <StepAssessment
-          loading={detectedRisksLoading}
-          error={detectedRisksError}
+          loading={assessmentLoading}
+          error={assessmentError}
           assessment={assessment}
-          onBack={() => setStep(2)}
-          onNext={() => setStep(4)}
+          onBack={() => setStep('selectFile')}
+          onNext={goFromAssessment}
         />
       )}
 
-      {step === 4 && assessment && (
+      {step === 'conflicts' && assessment && (
+        <StepConflicts
+          conflicts={assessment.conflicts}
+          resolutions={conflictResolutions}
+          onResolutionsChange={setConflictResolutions}
+          onBack={() => setStep('assessment')}
+          onNext={() => setStep('approve')}
+        />
+      )}
+
+      {step === 'approve' && (
         <StepApprove
-          assessment={assessment}
+          finalImportable={finalImportable}
           userComment={userComment}
           onUserCommentChange={setUserComment}
           applyLoading={applyLoading}
           applyError={applyError}
-          onBack={() => setStep(3)}
+          onBack={goBackFromApprove}
           onApply={handleApply}
         />
       )}
 
-      {step === 5 && assessment && applyResults && (
-        <StepResult assessment={assessment} results={applyResults} onStartOver={handleStartOver} />
+      {step === 'result' && applyResults && (
+        <StepResult finalImportable={finalImportable} results={applyResults} onStartOver={handleStartOver} />
       )}
     </div>
   );

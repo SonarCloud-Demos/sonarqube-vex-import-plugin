@@ -97,4 +97,39 @@ describe('parseVex', () => {
     expect(result.candidates).toHaveLength(2);
     expect(result.candidates.map((c) => c.packageUrl)).toEqual(['pkg:npm/a@1', 'pkg:npm/b@2']);
   });
+
+  describe('vexReferenceDate', () => {
+    function candidateWith(analysis?: Record<string, unknown>, metadata?: Record<string, unknown>) {
+      const result = parseVex(
+        doc({
+          metadata,
+          vulnerabilities: [{ id: 'CVE-2024-1111', affects: [{ ref: 'pkg:npm/x@1' }], analysis }],
+        })
+      );
+      return result.candidates[0];
+    }
+
+    it('prefers analysis.lastUpdated over firstIssued and document timestamp', () => {
+      const c = candidateWith(
+        { state: 'resolved', lastUpdated: '2026-03-01T00:00:00Z', firstIssued: '2026-01-01T00:00:00Z' },
+        { timestamp: '2026-02-01T00:00:00Z' }
+      );
+      expect(c.vexReferenceDate).toBe('2026-03-01T00:00:00Z');
+    });
+
+    it('falls back to analysis.firstIssued when lastUpdated is absent', () => {
+      const c = candidateWith({ state: 'resolved', firstIssued: '2026-01-01T00:00:00Z' }, { timestamp: '2026-02-01T00:00:00Z' });
+      expect(c.vexReferenceDate).toBe('2026-01-01T00:00:00Z');
+    });
+
+    it('falls back to document metadata.timestamp when analysis has neither date', () => {
+      const c = candidateWith({ state: 'resolved' }, { timestamp: '2026-02-01T00:00:00Z' });
+      expect(c.vexReferenceDate).toBe('2026-02-01T00:00:00Z');
+    });
+
+    it('is undefined when no date is present anywhere', () => {
+      const c = candidateWith({ state: 'resolved' });
+      expect(c.vexReferenceDate).toBeUndefined();
+    });
+  });
 });

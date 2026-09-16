@@ -42,8 +42,16 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           the assessment step, with the reason why.
         </p>
         <p>
-          The five steps are: explain the workflow (this page), select a VEX file and target branch, review
-          an assessment of what will and won't change, approve and apply, then see the result.
+          The steps are: explain the workflow (this page), select a VEX file and target branch, review an
+          assessment of what will and won't change, resolve any conflicts, approve and apply, then see the
+          result.
+        </p>
+        <p>
+          If a matched entry's SonarQube status was already changed manually more recently than the VEX
+          file's own date — or the file has no date to compare — it's treated as a <strong>conflict</strong>{' '}
+          needing your explicit decision, not applied automatically. Most VEX files don't carry that date
+          information at all, so if a project has seen much manual triage, expect a fair number of these; a
+          dedicated step lets you resolve them individually or all at once.
         </p>
         <p style={{ marginBottom: 0 }}>
           Prefer to run this from a script or CI pipeline instead? Download the companion command-line

@@ -52,6 +52,9 @@ python3 ../../cli/vex-import.py \
 | `resolved.json` | `resolved` → `FIXED` |
 | `in-triage.json` | `in_triage` → blocked, not actionable |
 | `not-detected.json` | a CVE/package this branch never had → blocked, not detected |
+| `conflict.json` | a real manual status change already exists on the risk, and the VEX carries an old (or no) reference date → conflict, needs resolution |
+
+`conflict.json` only produces an actual conflict once the target risk has real SonarQube-side history — e.g. after you've already changed its status once via the UI or `sonar api post .../change-status`, or after importing one of the other fixtures against it first. Against a risk with no history yet, it will simply be importable.
 
 The exact `id` values in these fixtures must match whatever CVE SonarQube's
 vulnerability database actually associates with each package/version at

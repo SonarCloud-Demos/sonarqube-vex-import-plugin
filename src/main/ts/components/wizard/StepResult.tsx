@@ -1,5 +1,5 @@
 import React from 'react';
-import { AssessmentResult } from '../../vex/assessImport';
+import { PlanItem } from '../../vex/assessImport';
 import { StatusChangeResult } from '../../api/scaChangeStatus';
 import { Badge, thBase, tdStyle } from '../shared/tableUtils';
 
@@ -23,17 +23,17 @@ const buttonStyle: React.CSSProperties = {
 };
 
 export interface StepResultProps {
-  assessment: AssessmentResult;
+  finalImportable: PlanItem[];
   results: StatusChangeResult[];
   onStartOver: () => void;
 }
 
-export function StepResult({ assessment, results, onStartOver }: Readonly<StepResultProps>) {
+export function StepResult({ finalImportable, results, onStartOver }: Readonly<StepResultProps>) {
   const resultsByKey = new Map(results.map((r) => [r.issueReleaseKey, r]));
   const succeeded = results.filter((r) => r.ok).length;
   const failed = results.length - succeeded;
 
-  const missing = assessment.importable.filter((item) => !resultsByKey.has(item.issueReleaseKey));
+  const missing = finalImportable.filter((item) => !resultsByKey.has(item.issueReleaseKey));
 
   return (
     <div>
@@ -61,7 +61,7 @@ export function StepResult({ assessment, results, onStartOver }: Readonly<StepRe
             </tr>
           </thead>
           <tbody>
-            {assessment.importable.map((item) => {
+            {finalImportable.map((item) => {
               const result = resultsByKey.get(item.issueReleaseKey);
               return (
                 <tr key={item.issueReleaseKey}>

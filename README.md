@@ -6,17 +6,18 @@ Adds a **VEX Import** page to SonarQube project pages. It imports a VEX (Vulnera
 
 ## What it does
 
-SonarQube ships VEX *export* today, but no in-product VEX *import*. This plugin fills that gap: a five-step wizard lets you upload a VEX file (e.g. one supplied by a third-party component vendor), see exactly which of SonarQube's currently detected dependency risks it would change and to what status, approve, and apply.
+SonarQube ships VEX *export* today, but no in-product VEX *import*. This plugin fills that gap: a wizard lets you upload a VEX file (e.g. one supplied by a third-party component vendor), see exactly which of SonarQube's currently detected dependency risks it would change and to what status, resolve any conflicts with decisions already made in SonarQube, approve, and apply.
 
 **Only dependencies SonarQube has actually detected** on the selected project branch can be affected — a VEX statement about a component SonarQube doesn't know about is reported as not importable, with the reason why (not detected, invalid workflow transition, unactionable analysis state, or malformed VEX entry).
 
-### The five steps
+### The steps
 
 1. **Explain** — how the import works, and a download link for the companion Python CLI script that performs the same import from the command line or CI.
 2. **Select** — drag-and-drop (or pick) a VEX file, and choose the target branch.
 3. **Assess** — review a table of importable changes (current status → new status, package, CVE, comment) and a separate table of VEX entries that cannot be imported, each with a reason.
-4. **Approve** — optionally add a comment appended to every imported item (in addition to the justification imported from the VEX file itself), confirm, and apply.
-5. **Result** — per-item success or failure, cross-checked against what step 3 assessed.
+4. **Resolve conflicts** *(only shown when needed)* — if the VEX proposes a change to a risk whose status SonarQube shows was already changed manually more recently than the VEX file's own date, pick per-item or all-at-once whether to keep SonarQube's status or apply the VEX's anyway. Skipped entirely when there's nothing to resolve.
+5. **Approve** — optionally add a comment appended to every imported item (in addition to the justification imported from the VEX file itself), confirm, and apply.
+6. **Result** — per-item success or failure, cross-checked against what was approved.
 
 ## Requirements
 
@@ -55,7 +56,7 @@ python3 cli/vex-import.py \
   --dry-run
 ```
 
-The script never contains or stores a token — pass your own via `--token`, or set `SONAR_TOKEN` in your environment instead if you'd rather it not show up in shell history or process listings. Drop `--dry-run` (and add `-y` to skip the confirmation prompt) to apply. See `cli/vex-import.py --help` for all options.
+The script never contains or stores a token — pass your own via `--token`, or set `SONAR_TOKEN` in your environment instead if you'd rather it not show up in shell history or process listings. Drop `--dry-run` (and add `-y` to skip the confirmation prompt) to apply. Use `--conflict-resolution keep|apply|ask` (default `ask`) to control what happens when a VEX entry conflicts with a status SonarQube shows was already changed manually more recently than the VEX file's own date — `keep`/`apply` skip the interactive prompt entirely, for CI. See `cli/vex-import.py --help` for all options.
 
 ## Disclaimer
 

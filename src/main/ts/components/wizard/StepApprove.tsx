@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AssessmentResult } from '../../vex/assessImport';
+import { PlanItem } from '../../vex/assessImport';
 
 const cardStyle: React.CSSProperties = {
   background: '#fff',
@@ -39,7 +39,7 @@ const textareaStyle: React.CSSProperties = {
 };
 
 export interface StepApproveProps {
-  assessment: AssessmentResult;
+  finalImportable: PlanItem[];
   userComment: string;
   onUserCommentChange: (value: string) => void;
   applyLoading: boolean;
@@ -49,7 +49,7 @@ export interface StepApproveProps {
 }
 
 export function StepApprove({
-  assessment,
+  finalImportable,
   userComment,
   onUserCommentChange,
   applyLoading,
@@ -58,7 +58,7 @@ export function StepApprove({
   onApply,
 }: Readonly<StepApproveProps>) {
   const [confirmed, setConfirmed] = useState(false);
-  const count = assessment.importable.length;
+  const count = finalImportable.length;
 
   return (
     <div>

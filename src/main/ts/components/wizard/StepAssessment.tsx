@@ -55,10 +55,18 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
     return null;
   }
 
-  const { importable, blocked } = assessment;
+  const { importable, blocked, conflicts } = assessment;
 
   return (
     <div>
+      {conflicts.length > 0 && (
+        <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}>
+          <strong>Needs a decision ({conflicts.length})</strong> — these entries would otherwise be importable, but
+          SonarQube's status was changed manually more recently than this VEX file's own reference date (or the file
+          has no date to compare). You'll resolve each one, individually or in bulk, in the next step.
+        </div>
+      )}
+
       <div style={cardStyle}>
         <h2 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>
           Importable changes ({importable.length})
@@ -122,7 +130,11 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
       <button style={secondaryButtonStyle} onClick={onBack}>
         Back
       </button>
-      <button style={disabledStyle(primaryButtonStyle, importable.length === 0)} onClick={onNext} disabled={importable.length === 0}>
+      <button
+        style={disabledStyle(primaryButtonStyle, importable.length === 0 && conflicts.length === 0)}
+        onClick={onNext}
+        disabled={importable.length === 0 && conflicts.length === 0}
+      >
         Next
       </button>
     </div>
