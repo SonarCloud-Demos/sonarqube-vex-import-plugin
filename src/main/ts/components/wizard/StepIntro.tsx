@@ -102,6 +102,19 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
         </p>
       </div>
 
+      <div style={calloutStyle}>
+        <div style={calloutHeadingStyle}>There is no undo</div>
+        <p style={{ marginBottom: 0 }}>
+          Once applied, a status change is just another SonarQube status change — there's no "restore
+          previous status" API, and importing on a different branch is <em>not</em> a safety net: a status
+          change made on another branch does not carry back onto a matching risk that already existed on
+          your main branch when that branch merges. If you want to preview an import's effect before
+          committing to it on your real branch, run it once against a throwaway, never-merged branch —
+          analyzed independently first, since a new branch doesn't inherit main's detected risks for free —
+          then apply for real once you're confident in the result.
+        </p>
+      </div>
+
       <div style={cardStyle}>
         <div style={headingStyle}>Prefer a script or CI pipeline?</div>
         <p style={{ marginBottom: 0 }}>
