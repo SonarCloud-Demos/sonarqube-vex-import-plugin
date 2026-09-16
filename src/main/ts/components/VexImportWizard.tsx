@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { fetchDetectedRisks } from '../api/scaDetectedRisks';
 import { BranchInfo } from '../api/projectBranches';
 import { applyStatusChanges, StatusChangeResult } from '../api/scaChangeStatus';
 import { fetchIssueReleaseChangelog } from '../api/scaChangelog';
+import { syncPluginSettings } from '../api/pluginSettings';
 import { assessImport, AssessmentResult, PlanItem } from '../vex/assessImport';
 import { parseVex, VexParseError, VexParseResult } from '../vex/parseVex';
 import { Disclaimer } from './shared/Disclaimer';
@@ -32,6 +33,14 @@ export interface VexImportWizardProps {
 export type WizardStep = 'intro' | 'selectFile' | 'assessment' | 'conflicts' | 'approve' | 'result';
 
 export function VexImportWizard({ component, branchLike }: Readonly<VexImportWizardProps>) {
+  // null = not checked yet (render nothing that could imply an answer either way),
+  // false = administrator disabled the plugin — show a notice and make no other calls.
+  const [pluginEnabled, setPluginEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    syncPluginSettings().then(({ enabled }) => setPluginEnabled(enabled));
+  }, []);
+
   const [step, setStep] = useState<WizardStep>('intro');
 
   const [selectedBranch, setSelectedBranch] = useState<BranchInfo | null>(null);
@@ -134,6 +143,19 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
       <div style={{ padding: '32px', fontFamily: 'sans-serif' }}>
         <Disclaimer />
         <p style={{ color: '#666' }}>VEX Import is only available at the project level.</p>
+      </div>
+    );
+  }
+
+  if (pluginEnabled === null) {
+    return null;
+  }
+
+  if (!pluginEnabled) {
+    return (
+      <div style={{ padding: '32px', fontFamily: 'sans-serif' }}>
+        <Disclaimer />
+        <p style={{ color: '#666' }}>VEX Import has been disabled by your administrator.</p>
       </div>
     );
   }

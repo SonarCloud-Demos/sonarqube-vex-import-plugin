@@ -20,11 +20,25 @@
 package org.sonar.plugin.vex.imports;
 
 import org.sonar.api.Plugin;
+import org.sonar.api.PropertyType;
+import org.sonar.api.config.PropertyDefinition;
 
 public class VexImportPlugin implements Plugin {
+
+  public static final String ENABLED_KEY = "veximport.enabled";
+  private static final String CATEGORY = "VEX Import";
 
   @Override
   public void define(Context context) {
     context.addExtension(VexImportPageDefinition.class);
+    context.addExtension(
+      PropertyDefinition.builder(ENABLED_KEY)
+        .name("Enable VEX Import")
+        .description("When disabled, the VEX Import project tab is not registered at all - no menu entry on any project, and no API calls. The page registry is built once, so toggling this requires a SonarQube restart before the tab appears or disappears; the disabled notice inside the page itself, though, takes effect immediately.")
+        .defaultValue("true")
+        .type(PropertyType.BOOLEAN)
+        .category(CATEGORY)
+        .build()
+    );
   }
 }

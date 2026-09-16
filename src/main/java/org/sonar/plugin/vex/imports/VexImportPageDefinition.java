@@ -19,16 +19,29 @@
  */
 package org.sonar.plugin.vex.imports;
 
+import org.sonar.api.config.Configuration;
 import org.sonar.api.web.page.Context;
 import org.sonar.api.web.page.Page;
 import org.sonar.api.web.page.Page.Qualifier;
 import org.sonar.api.web.page.Page.Scope;
 import org.sonar.api.web.page.PageDefinition;
 
+/** Project tab. Not registered at all when the plugin is disabled
+ * (veximport.enabled) - the page registry is built once, so toggling the
+ * setting requires a SonarQube restart before the tab appears/disappears. */
 public class VexImportPageDefinition implements PageDefinition {
+
+  private final Configuration configuration;
+
+  public VexImportPageDefinition(Configuration configuration) {
+    this.configuration = configuration;
+  }
 
   @Override
   public void define(Context context) {
+    if (!configuration.getBoolean(VexImportPlugin.ENABLED_KEY).orElse(true)) {
+      return;
+    }
     context.addPage(Page.builder("veximport/vex_import")
       .setName("VEX Import")
       .setScope(Scope.COMPONENT)

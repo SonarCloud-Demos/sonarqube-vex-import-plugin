@@ -24,6 +24,10 @@ SonarQube ships VEX *export* today, but no in-product VEX *import*. This plugin 
 - SonarQube 2025.1 or later, with Advanced Security / SCA enabled on the project
 - **Administer Issues** permission on the target project (Browse alone is enough to view but not to apply)
 
+## Administration
+
+An instance admin can disable the plugin instance-wide from **Administration → General Settings → VEX Import** ("Enable VEX Import"). Disabling it removes the project tab entirely for every project — this needs a SonarQube **restart** to take effect, since the page registry is only built at startup. A runtime check inside the page itself makes disabling effective immediately in the gap before that restart (and is defense-in-depth afterward): visiting the page directly while disabled shows a notice instead of the wizard.
+
 ## Building
 
 ```bash

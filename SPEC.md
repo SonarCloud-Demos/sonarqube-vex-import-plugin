@@ -23,12 +23,15 @@ SonarQube ships VEX *export* today (a machine-readable vulnerability posture rep
 
 ```
 VexImportPlugin
-  └── VexImportPageDefinition       (PageDefinition)
-        └── page "veximport/vex_import"
-              scope=COMPONENT, qualifiers=PROJECT only
+  ├── VexImportPageDefinition       (PageDefinition, Configuration-injected)
+  │     └── page "veximport/vex_import"
+  │           scope=COMPONENT, qualifiers=PROJECT only
+  └── PropertyDefinition "veximport.enabled"
+        boolean, default true, category "VEX Import"
+        (Administration → General Settings → VEX Import)
 ```
 
-No admin page, no property definition. The Java layer only registers the page; all logic runs in the browser (and, separately, in the companion Python CLI — see §6).
+`VexImportPageDefinition` skips `context.addPage(...)` entirely when `veximport.enabled` is `false` — no project tab is registered instance-wide. The page registry is built once at startup, so toggling the setting needs a SonarQube **restart** before the tab actually appears/disappears; `pluginSettings.ts`'s runtime check (see the `VexImportWizard` entry below) is what makes disabling take effect *immediately* in the gap before that restart, and is defense-in-depth afterward (e.g. someone with the URL already bookmarked). No admin page beyond the auto-generated settings form — the boolean is simple enough not to need one. The Java layer otherwise only registers the page; all logic runs in the browser (and, separately, in the companion Python CLI — see §6).
 
 ### TypeScript entry point
 
@@ -228,7 +231,7 @@ POST requests include an `X-XSRF-TOKEN` header set from the `XSRF-TOKEN` cookie 
 
 ### `VexImportWizard` (`components/VexImportWizard.tsx`)
 
-Root state container. Props: `{ component: { key, name, qualifier? }, branchLike?: { name } }`. Renders a plain "not available" message if `component.qualifier` is set and isn't `TRK` (defense in depth — the page definition already restricts registration to `PROJECT`).
+Root state container. Props: `{ component: { key, name, qualifier? }, branchLike?: { name } }`. Renders a plain "not available" message if `component.qualifier` is set and isn't `TRK` (defense in depth — the page definition already restricts registration to `PROJECT`). Before rendering the wizard itself, calls `syncPluginSettings()` (`api/pluginSettings.ts`, `GET /api/settings/values?keys=veximport.enabled`) once on mount; renders nothing while that's pending (`pluginEnabled === null`, avoiding a flash of the wizard before the check resolves), and a "disabled by your administrator" notice instead of the wizard if it comes back `false`. Fails open (treats a fetch error the same as `true`) since a broken settings call shouldn't be indistinguishable from an admin actually disabling the feature. See §2's Java entry points for the setting itself.
 
 State: `step` (`WizardStep`, a named union — see §2), `selectedBranch`, `vexFile`/`parsedVex`/`parseError`, `assessment`/`assessmentLoading`/`assessmentError`, `conflictResolutions` (`Map<issueReleaseKey, 'keep'|'apply'>`), `userComment`, `applyLoading`/`applyError`/`applyResults`. `assessment` is now loaded via an explicit async pipeline (`goToAssessment`: `fetchDetectedRisks` then `assessImport(parsedVex, risks, fetchIssueReleaseChangelog)`) rather than a pure `useMemo`, since matching now requires network calls (the changelog fetch per candidate). `finalImportable` is derived via `useMemo` over `[assessment, conflictResolutions]` — `assessment.importable` concatenated with whichever conflicts are resolved as `'apply'` — and is the single value `StepApprove`/`StepResult` consume (they no longer see the full `AssessmentResult`).
 

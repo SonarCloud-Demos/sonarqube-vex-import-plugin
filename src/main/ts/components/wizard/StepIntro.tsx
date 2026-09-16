@@ -90,14 +90,22 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
           <code>analysis.state</code> and <code>analysis.justification</code>) is written into the status
           change's <strong>comment</strong> - SonarQube has no separate structured field for a VEX
           justification, so this is the only place it ends up. <code>analysis.response</code> also
-          decides, for an <code>exploitable</code> entry, whether it becomes Accepted (
-          <code>will_not_fix</code> is present) or Confirmed.
+          decides, for an <code>exploitable</code> entry, whether it becomes Accepted (<code>will_not_fix</code>{' '}
+          is present) or Confirmed.
         </p>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           If the VEX file's <code>metadata.authors</code> or <code>metadata.supplier</code> identify who
           issued it, that contact info is appended to the comment too, as{' '}
           <code>(VEX contact: ...)</code> - so a reviewer looking at the change later knows who to ask
           about the justification, not just what SonarQube itself recorded.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          <strong>Permissions:</strong> actually applying a status change requires{' '}
+          <strong>Administer Issues</strong> on this project. Without it, SonarQube itself won't offer
+          most of the transitions a VEX entry might need - a CI or scan-only token, for example,
+          typically has narrower transitions than an admin account, and that's SonarQube's own
+          permission model at work, not a bug in this wizard. Browsing detected risks and reviewing the
+          assessment doesn't need any special permission beyond what already lets you see the project.
         </p>
       </div>
 
