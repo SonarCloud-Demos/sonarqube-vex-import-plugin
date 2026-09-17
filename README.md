@@ -2,6 +2,15 @@
 
 > ⚠️ **Experimental** — This is a personal project, not an official Sonar product. It is not endorsed or supported by SonarSource.
 
+**Main repository:** [sonar-solutions/sonarqube-vex-import-plugin](https://github.com/sonar-solutions/sonarqube-vex-import-plugin)
+— this is where development happens; open issues/PRs here.
+
+A private, independent copy (not a GitHub fork — no linkage back to the repo above) is kept in sync at
+[SonarCloud-Demos/sonarqube-vex-import-plugin](https://github.com/SonarCloud-Demos/sonarqube-vex-import-plugin)
+so the project can be shared with people outside the `sonar-solutions` org while staying private.
+It's a manual duplication (full history + tags pushed across), not automated — it won't pick up new
+commits on its own.
+
 Adds a **VEX Import** page to SonarQube project pages. It imports a VEX (Vulnerability Exploitability eXchange) document — CycloneDX 1.6 JSON — and bulk-updates the status of matching SCA dependency risks to reflect it.
 
 ## What it does
