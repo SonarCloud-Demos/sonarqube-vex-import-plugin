@@ -85,6 +85,14 @@ class MapAnalysisTest(unittest.TestCase):
             'Vendor investigating',
         )
 
+    def test_non_string_state_is_unrecognized_not_a_crash(self):
+        for state in (['in_triage'], {'x': 1}, 42):
+            with self.subTest(state=state):
+                self.assertEqual(vex_import.state_key_for({'state': state}), 'unrecognized')
+                blocked, reason, _ = vex_import.map_analysis_to_transition({'state': state})
+                self.assertTrue(blocked)
+                self.assertIn('is not actionable', reason)
+
     def test_decided_state_mapped_to_skip_has_distinct_reason(self):
         mapping = vex_import.build_mapping(overrides=['resolved=skip'])
         self.assertEqual(

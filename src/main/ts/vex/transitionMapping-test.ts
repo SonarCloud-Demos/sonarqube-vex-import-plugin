@@ -42,6 +42,10 @@ describe('mapAnalysisToTransition', () => {
     expect(result).toEqual({ blocked: true, stateKey: 'in_triage', reason: "VEX analysis.state 'in_triage' is not actionable" });
   });
 
+  it('classifies a non-string state as unrecognized', () => {
+    expect(mapAnalysisToTransition({ state: ['in_triage'] as unknown as string })).toMatchObject({ blocked: true, stateKey: 'unrecognized' });
+  });
+
   it('blocks an unrecognized state', () => {
     const result = mapAnalysisToTransition({ state: 'made_up' });
     expect(result).toEqual({ blocked: true, stateKey: 'unrecognized', reason: "VEX analysis.state 'made_up' is not actionable" });

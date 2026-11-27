@@ -60,7 +60,7 @@ VexImportWizard                       (root state container)
 ### Data flow
 
 ```
-step 2 (file + branch selected)
+step 2 (file + branch selected, status mapping chosen — default = §3.3)
   │
   ├── parseVex(rawJsonText)            — pure, network-free
   │     → { candidates: [{vulnerabilityId, packageUrl, analysis}], issues: [...] }
@@ -72,10 +72,12 @@ step 3 (entered)
   ├── fetchDetectedRisks(projectKey, branchKey)   ← GET /api/v2/sca/issues-releases
   │     → DetectedRisk[] { issueReleaseKey, vulnerabilityId, packageUrl, status, transitions[] }
   │
-  ├── assessImport(parsedVex, detectedRisks, fetchIssueReleaseChangelog)   — async
-  │     phase 1 (synchronous matching, unchanged):
+  ├── assessImport(parsedVex, detectedRisks, fetchIssueReleaseChangelog, mapping)   — async
+  │     phase 1 (synchronous matching):
   │       no matching (vulnerabilityId, packageUrl) in detected risks → blocked
-  │       mapAnalysisToTransition(analysis) blocked (state not actionable) → blocked
+  │       mapAnalysisToTransition(analysis, mapping) target is SKIP → blocked
+  │       target OPEN and risk already OPEN → unchanged (no write, no changelog lookup)
+  │       target OPEN otherwise → transitionKey REOPEN; other targets → same-named transitionKey
   │       computed transitionKey not in that risk's transitions[] → blocked
   │       duplicate (vulnerabilityId, packageUrl) within the file → blocked (first wins)
   │       otherwise → provisional { PlanItem, vexReferenceDate }
@@ -244,7 +246,7 @@ POST requests include an `X-XSRF-TOKEN` header set from the `XSRF-TOKEN` cookie 
 
 Root state container. Props: `{ component: { key, name, qualifier? }, branchLike?: { name } }`. Renders a plain "not available" message if `component.qualifier` is set and isn't `TRK` (defense in depth — the page definition already restricts registration to `PROJECT`). Before rendering the wizard itself, calls `syncPluginSettings()` (`api/pluginSettings.ts`, `GET /api/settings/values?keys=veximport.enabled`) once on mount; renders nothing while that's pending (`pluginEnabled === null`, avoiding a flash of the wizard before the check resolves), and a "disabled by your administrator" notice instead of the wizard if it comes back `false`. Fails open (treats a fetch error the same as `true`) since a broken settings call shouldn't be indistinguishable from an admin actually disabling the feature. See §2's Java entry points for the setting itself.
 
-State: `step` (`WizardStep`, a named union — see §2), `selectedBranch`, `vexFile`/`parsedVex`/`parseError`, `assessment`/`assessmentLoading`/`assessmentError`, `conflictResolutions` (`Map<issueReleaseKey, 'keep'|'apply'>`), `userComment`, `applyLoading`/`applyError`/`applyResults`. `assessment` is now loaded via an explicit async pipeline (`goToAssessment`: `fetchDetectedRisks` then `assessImport(parsedVex, risks, fetchIssueReleaseChangelog)`) rather than a pure `useMemo`, since matching now requires network calls (the changelog fetch per candidate). `finalImportable` is derived via `useMemo` over `[assessment, conflictResolutions]` — `assessment.importable` concatenated with whichever conflicts are resolved as `'apply'` — and is the single value `StepApprove`/`StepResult` consume (they no longer see the full `AssessmentResult`).
+State: `step` (`WizardStep`, a named union — see §2), `selectedBranch`, `vexFile`/`parsedVex`/`parseError`, `mapping` (`StatusMapping`, initialized to a copy of `DEFAULT_MAPPING`, edited in `StepSelectFile`'s Status mapping panel and kept across Start over), `assessment`/`assessmentLoading`/`assessmentError`, `conflictResolutions` (`Map<issueReleaseKey, 'keep'|'apply'>`), `userComment`, `applyLoading`/`applyError`/`applyResults`. `assessment` is now loaded via an explicit async pipeline (`goToAssessment`: `fetchDetectedRisks` then `assessImport(parsedVex, risks, fetchIssueReleaseChangelog, mapping)`) rather than a pure `useMemo`, since matching now requires network calls (the changelog fetch per candidate). `finalImportable` is derived via `useMemo` over `[assessment, conflictResolutions]` — `assessment.importable` concatenated with whichever conflicts are resolved as `'apply'` — and is the single value `StepApprove`/`StepResult` consume (they no longer see the full `AssessmentResult`). `AssessmentResult` carries four lists — `importable`, `conflicts`, `blocked`, `unchanged` — all shown by `StepAssessment`; `describeMapping(mapping)` is passed to `StepAssessment` and `StepResult` for the "Status mapping: …" line.
 
 ### `StepIntro`, `StepSelectFile`, `StepAssessment`, `StepApprove`, `StepResult` (`components/wizard/`)
 

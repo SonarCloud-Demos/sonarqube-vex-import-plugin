@@ -202,7 +202,7 @@ def state_key_for(analysis):
     state = (analysis or {}).get('state')
     if not state:
         return 'missing'
-    if state not in _KNOWN_STATES:
+    if not isinstance(state, str) or state not in _KNOWN_STATES:
         return 'unrecognized'
     if state == 'exploitable':
         return 'exploitable_will_not_fix' if 'will_not_fix' in (analysis.get('response') or []) else 'exploitable'
