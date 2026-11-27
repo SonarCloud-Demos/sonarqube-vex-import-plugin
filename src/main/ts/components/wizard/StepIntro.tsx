@@ -204,7 +204,10 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
                 <code>in_triage</code>, missing, or unrecognized
               </td>
               <td style={tdStyle}>-</td>
-              <td style={tdStyle}>not importable by default, or Open if you choose so</td>
+              <td style={tdStyle}>
+                not importable by default, or Open if you choose so: Open and Confirmed risks stay as they are,
+                Accepted, Safe or Fixed risks are reopened after you confirm
+              </td>
             </tr>
           </tbody>
         </table>

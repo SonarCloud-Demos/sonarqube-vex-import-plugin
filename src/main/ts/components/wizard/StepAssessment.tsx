@@ -165,7 +165,7 @@ export function StepAssessment({ loading, error, assessment, mappingDescription 
       {unchanged.length > 0 && (
         <div style={cardStyle}>
           <h2 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>
-            Already Open, no change needed ({unchanged.length})
+            Already Open or Confirmed, no change needed ({unchanged.length})
           </h2>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>

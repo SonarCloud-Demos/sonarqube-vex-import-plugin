@@ -177,7 +177,7 @@ class AssessImportTest(unittest.TestCase):
         self.assertEqual(calls, [], 'no history lookup needed when nothing changes')
 
     def test_open_on_triaged_risk_reopens(self):
-        for status in ('CONFIRM', 'ACCEPT', 'SAFE'):
+        for status in ('ACCEPT', 'SAFE', 'FIXED'):
             with self.subTest(status=status):
                 importable, blocked, _, _ = self.assess(
                     {'state': 'in_triage', 'detail': 'Vendor investigating'},
@@ -188,6 +188,16 @@ class AssessImportTest(unittest.TestCase):
                 self.assertEqual(importable[0]['transition_key'], 'REOPEN')
                 self.assertEqual(importable[0]['current_status'], status)
                 self.assertEqual(importable[0]['comment'], 'Vendor investigating')
+
+    def test_open_on_confirmed_risk_is_unchanged(self):
+        calls = []
+        importable, blocked, conflicts, unchanged = self.assess(
+            {'state': 'in_triage'}, [risk('CONFIRM', ('REOPEN', 'SAFE'))], vex_import.build_mapping(undecided='open'),
+            fetch_changelog=lambda key: calls.append(key) or [],
+        )
+        self.assertEqual((importable, blocked, conflicts), ([], [], []))
+        self.assertEqual(unchanged, [{'vulnerability_id': CVE, 'package_url': PURL, 'current_status': 'CONFIRM'}])
+        self.assertEqual(calls, [])
 
     def test_reopen_not_offered_is_blocked(self):
         importable, blocked, _, _ = self.assess(
@@ -215,7 +225,7 @@ class AssessImportTest(unittest.TestCase):
             'changeData': [{'fieldName': 'status', 'oldValue': 'OPEN', 'newValue': 'CONFIRM'}],
         }]
         importable, _, conflicts, _ = self.assess(
-            {'state': 'in_triage'}, [risk('CONFIRM', ('REOPEN',))], vex_import.build_mapping(undecided='open'),
+            {'state': 'in_triage'}, [risk('ACCEPT', ('REOPEN',))], vex_import.build_mapping(undecided='open'),
             fetch_changelog=lambda key: history, vex_reference_date='2026-01-01T00:00:00Z',
         )
         self.assertEqual(importable, [])

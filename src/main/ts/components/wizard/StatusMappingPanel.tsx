@@ -67,7 +67,8 @@ export function StatusMappingPanel({ mapping, onMappingChange }: Readonly<Status
           checked={choice === 'OPEN'}
           onChange={() => onMappingChange(withUndecided(mapping, 'OPEN'))}
         />{' '}
-        Import them as Open (reopens the risk if needed, with the VEX detail as comment)
+        Import them as Open (Open and Confirmed risks stay as they are; Accepted, Safe or Fixed risks are
+        reopened, with the VEX detail as comment, after you confirm on the conflicts step)
       </label>
       {choice === 'CUSTOM' && (
         <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>Custom - see the full mapping below.</p>

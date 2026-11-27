@@ -27,7 +27,10 @@ export interface ConflictItem {
   sonarLastChangeComment?: string;
 }
 
-/** A VEX entry mapped to Open whose risk is already Open: nothing to change. */
+/**
+ * A VEX entry mapped to Open whose risk is already Open or Confirmed: nothing
+ * to change (Confirmed is kept as the stronger decision, never demoted).
+ */
 export interface UnchangedItem {
   vulnerabilityId: string;
   packageUrl: string;
@@ -40,6 +43,10 @@ export interface AssessmentResult {
   conflicts: ConflictItem[];
   unchanged: UnchangedItem[];
 }
+
+// Statuses that already mean "to be dealt with": an Open target leaves them as is.
+// KEEP IN SYNC WITH cli/vex-import.py (STATUSES_ALREADY_OPEN)
+const STATUSES_ALREADY_OPEN = new Set(['OPEN', 'CONFIRM']);
 
 export type ChangelogFetcher = (issueReleaseKey: string) => Promise<ChangelogEntry[]>;
 
@@ -73,8 +80,9 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
  * carries no date to compare against).
  *
  * `mapping` is the user-adjustable state → status mapping (defaults to
- * DEFAULT_MAPPING, i.e. v0.1.0 behavior). A row mapped to Open becomes a
- * REOPEN transition, or an `unchanged` entry when the risk is already Open.
+ * DEFAULT_MAPPING, i.e. v0.1.0 behavior). A row mapped to Open becomes an
+ * `unchanged` entry when the risk is already Open or Confirmed, otherwise a
+ * REOPEN transition that always needs a decision if the risk has history.
  *
  * `fetchChangelog` is required and explicit (no default pointing at the real
  * network fetch) so this stays a pure, network-free function to unit test —
@@ -141,7 +149,7 @@ export async function assessImport(
 
     let transitionKey: TransitionKey;
     if (mapped.target === 'OPEN') {
-      if (risk.status === 'OPEN') {
+      if (STATUSES_ALREADY_OPEN.has(risk.status)) {
         unchanged.push({
           vulnerabilityId: candidate.vulnerabilityId,
           packageUrl: candidate.packageUrl,

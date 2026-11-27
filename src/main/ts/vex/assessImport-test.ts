@@ -306,7 +306,7 @@ describe('assessImport', () => {
       ]);
     });
 
-    it.each(['CONFIRM', 'ACCEPT', 'SAFE'])('plans REOPEN for a %s risk when undecided maps to Open', async (status) => {
+    it.each(['ACCEPT', 'SAFE', 'FIXED'])('plans REOPEN for a %s risk when undecided maps to Open', async (status) => {
       const result = await assessImport(
         inTriage('Vendor still investigating'),
         [risk({ status, transitions: ['REOPEN', 'SAFE'] })],
@@ -341,7 +341,7 @@ describe('assessImport', () => {
       const fetchChangelog: ChangelogFetcher = async () => [statusChangeAt('2026-02-01T00:00:00Z')];
       const result = await assessImport(
         vex({ candidates: [candidate] }),
-        [risk({ status: 'CONFIRM', transitions: ['REOPEN'] })],
+        [risk({ status: 'ACCEPT', transitions: ['REOPEN'] })],
         fetchChangelog,
         undecidedOpen
       );
@@ -370,9 +370,26 @@ describe('assessImport', () => {
     });
 
     it('still imports a reopen directly when the risk has no status-change history', async () => {
-      const result = await assessImport(inTriage(), [risk({ status: 'CONFIRM', transitions: ['REOPEN'] })], noHistory, undecidedOpen);
+      const result = await assessImport(inTriage(), [risk({ status: 'ACCEPT', transitions: ['REOPEN'] })], noHistory, undecidedOpen);
       expect(result.conflicts).toEqual([]);
       expect(result.importable[0].transitionKey).toBe('REOPEN');
+    });
+
+    it('leaves a Confirmed risk as is when undecided maps to Open (never demoted)', async () => {
+      const fetchChangelog = jest.fn(async () => [statusChangeAt('2026-11-20T00:00:00Z')]);
+      const result = await assessImport(
+        inTriage(),
+        [risk({ status: 'CONFIRM', transitions: ['REOPEN', 'SAFE'] })],
+        fetchChangelog,
+        undecidedOpen
+      );
+      expect(result.importable).toEqual([]);
+      expect(result.conflicts).toEqual([]);
+      expect(result.blocked).toEqual([]);
+      expect(result.unchanged).toEqual([
+        { vulnerabilityId: 'CVE-2024-1111', packageUrl: 'pkg:npm/express@4.19.2', currentStatus: 'CONFIRM' },
+      ]);
+      expect(fetchChangelog).not.toHaveBeenCalled();
     });
 
     it('does not fetch history for an already-Open risk (nothing to change)', async () => {

@@ -32,8 +32,10 @@ them, no prompting — for CI/scripted use. Never prompts during --dry-run.
 
 --undecided and --map adjust the VEX analysis state -> SonarQube status
 mapping (defaults reproduce the fixed mapping of v0.1.0). --undecided open
-imports in_triage / missing / unrecognized statements as Open (REOPEN when the
-risk isn't Open, no change when it already is); --map overrides one row, e.g.
+imports in_triage / missing / unrecognized statements as Open: Open and
+Confirmed risks stay as they are; Accepted / Safe / Fixed risks get REOPEN,
+which always needs a decision (--conflict-resolution) when the risk has
+status-change history; --map overrides one row, e.g.
 --map in_triage=open --map false_positive=safe. States: not_affected,
 false_positive, resolved, resolved_with_pedigree, exploitable,
 exploitable_will_not_fix, in_triage, missing, unrecognized. Targets: safe,
@@ -194,6 +196,12 @@ DEFAULT_MAPPING = {
     'missing': 'SKIP',
     'unrecognized': 'SKIP',
 }
+
+# Statuses that already mean "to be dealt with": an Open target leaves them as is
+# (Confirmed is kept as the stronger decision). Accepted / Safe / Fixed are
+# reopened, always through conflict resolution when the risk has history.
+# KEEP IN SYNC WITH src/main/ts/vex/assessImport.ts (STATUSES_ALREADY_OPEN)
+STATUSES_ALREADY_OPEN = ('OPEN', 'CONFIRM')
 
 _KNOWN_STATES = {'not_affected', 'false_positive', 'resolved', 'resolved_with_pedigree', 'exploitable', 'in_triage'}
 
@@ -392,7 +400,7 @@ def assess_import(candidates, issues, detected_risks, fetch_changelog, mapping=N
             continue
 
         if target_or_reason == 'OPEN':
-            if risk['status'] == 'OPEN':
+            if risk['status'] in STATUSES_ALREADY_OPEN:
                 unchanged.append({
                     'vulnerability_id': candidate['vulnerability_id'],
                     'package_url': candidate['package_url'],
@@ -555,7 +563,7 @@ def print_plan(importable, blocked, conflicts, unchanged=(), mapping=None):
     for item in blocked:
         print(f"  {item.get('vulnerability_id') or '—'} / {item.get('package_url') or '—'}: {item['reason']}")
     if unchanged:
-        print(f'\nAlready Open, no change needed ({len(unchanged)}):')
+        print(f'\nAlready Open or Confirmed, no change needed ({len(unchanged)}):')
         for item in unchanged:
             print(f"  {item['vulnerability_id']} / {item['package_url']}: {item['current_status']}")
     print()
@@ -594,7 +602,7 @@ def main(argv):
     parser.add_argument('--conflict-resolution', choices=['keep', 'apply', 'ask'], default='ask',
                          help="How to handle a VEX entry that conflicts with a status SonarQube shows was already changed manually more recently: 'ask' (default, interactive prompt per conflict), 'keep' (never apply), 'apply' (always apply, no prompting — for CI)")
     parser.add_argument('--undecided', choices=['skip', 'open'], default=None,
-                        help="How to handle in_triage / missing / unrecognized analysis states: 'skip' (default, reported as not importable) or 'open' (import as Open)")
+                        help="How to handle in_triage / missing / unrecognized analysis states: 'skip' (default, reported as not importable) or 'open' (import as Open: Open and Confirmed risks stay as they are, Accepted / Safe / Fixed risks are reopened)")
     parser.add_argument('--map', action='append', default=[], metavar='STATE=TARGET',
                         help='Override one row of the status mapping, e.g. --map false_positive=confirm. Repeatable; applied after --undecided.')
     parser.add_argument('--dry-run', action='store_true', help='Print the plan without applying any changes')

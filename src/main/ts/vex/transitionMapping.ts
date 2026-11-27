@@ -4,9 +4,15 @@ import { CycloneDxAnalysis } from './types';
 export type TransitionKey = 'SAFE' | 'FIXED' | 'ACCEPT' | 'CONFIRM' | 'REOPEN';
 
 /**
- * What a VEX analysis state is mapped to. `OPEN` means "the risk ends up Open"
- * (resolved to the REOPEN transition, or to no change when the risk is already
- * Open — see assessImport.ts). `SKIP` means "do not import, report it".
+ * What a VEX analysis state is mapped to. `SKIP` means "do not import, report it".
+ *
+ * `OPEN` means "the risk must still be dealt with" (see assessImport.ts):
+ * - risk already OPEN or CONFIRMed -> no change. Confirmed already says "real,
+ *   to be fixed", and an undecided VEX statement adds nothing to that decision,
+ *   so it is never demoted back to Open;
+ * - risk ACCEPTed, SAFE or FIXED -> the REOPEN transition, and always through
+ *   the conflict step when the risk has status-change history, so a decision
+ *   made in SonarQube is never overridden without the user confirming it.
  */
 export type MappingTarget = 'SAFE' | 'FIXED' | 'ACCEPT' | 'CONFIRM' | 'OPEN' | 'SKIP';
 

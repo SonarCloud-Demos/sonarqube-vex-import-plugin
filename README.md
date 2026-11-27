@@ -22,7 +22,7 @@ SonarQube ships VEX *export* today, but no in-product VEX *import*. This plugin 
 ### The steps
 
 1. **Explain** — how the import works, and a download link for the companion Python CLI script that performs the same import from the command line or CI.
-2. **Select** — drag-and-drop (or pick) a VEX file, choose the target branch, and optionally adjust the status mapping: undecided statements (`in_triage`, missing or unrecognized state) can be skipped (default) or imported as Open, and every other VEX state → SonarQube status row can be changed.
+2. **Select** — drag-and-drop (or pick) a VEX file, choose the target branch, and optionally adjust the status mapping: undecided statements (`in_triage`, missing or unrecognized state) can be skipped (default) or imported as Open (Open and Confirmed risks stay as they are; Accepted, Safe or Fixed risks are reopened after you confirm), and every other VEX state → SonarQube status row can be changed.
 3. **Assess** — review a table of importable changes (current status → new status, package, CVE, comment) and a separate table of VEX entries that cannot be imported, each with a reason.
 4. **Resolve conflicts** *(only shown when needed)* — if the VEX proposes a change to a risk whose status SonarQube shows was already changed manually more recently than the VEX file's own date, pick per-item or all-at-once whether to keep SonarQube's status or apply the VEX's anyway. Skipped entirely when there's nothing to resolve.
 5. **Approve** — optionally add a comment to every imported item (added on the next line after the justification imported from the VEX file), confirm, and apply.

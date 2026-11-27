@@ -57,7 +57,7 @@ describe('StepAssessment', () => {
     expect(within(row).getByText(`${formatDate('2026-11-27T08:54:08.698Z')} by jenkins`)).toBeInTheDocument();
     expect(within(row).getByText(formatDate('2020-01-01T00:00:00Z'))).toBeInTheDocument();
 
-    expect(screen.getByText(/Already Open, no change needed \(2\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Already Open or Confirmed, no change needed \(2\)/)).toBeInTheDocument();
     expect(screen.getByTestId('mapping-description')).toHaveTextContent('Status mapping: custom (in_triage → Open');
     expect(screen.getByText('No VEX entry was rejected.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
