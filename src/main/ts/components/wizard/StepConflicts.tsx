@@ -106,17 +106,17 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
         </p>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '1300px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '1000px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
             <colgroup>
-              <col style={{ width: '90px' }} />
-              <col style={{ width: '160px' }} />
-              <col style={{ width: '170px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '140px' }} />
-              <col style={{ width: '260px' }} />
-              <col style={{ width: '110px' }} />
-              <col style={{ width: '260px' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '14%' }} />
             </colgroup>
             <thead>
               <tr>
