@@ -44,7 +44,9 @@
     "tar@^7.5.4": "7.5.22",
     "undici@^6.25.0": "6.28.1",
     "browserslist": "4.29.0",
-    "baseline-browser-mapping": "2.11.24"
+    "baseline-browser-mapping": "2.11.24",
+    "follow-redirects@^1.0.0": "1.16.2",
+    "glob@^13.0.6": "13.0.7"
   },
   "scripts": {
     "build": "node scripts/build.js",
