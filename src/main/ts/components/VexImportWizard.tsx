@@ -8,6 +8,7 @@ import { assessImport, AssessmentResult, PlanItem } from '../vex/assessImport';
 import { joinComments } from '../vex/comments';
 import { parseVex, VexParseError, VexParseResult } from '../vex/parseVex';
 import { DEFAULT_MAPPING, describeMapping, StatusMapping } from '../vex/transitionMapping';
+import { requestedBranch } from '../utils/requestedBranch';
 import { Disclaimer } from './shared/Disclaimer';
 import { StepIntro } from './wizard/StepIntro';
 import { StepSelectFile } from './wizard/StepSelectFile';
@@ -42,6 +43,8 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
   useEffect(() => {
     syncPluginSettings().then(({ enabled }) => setPluginEnabled(enabled));
   }, []);
+
+  const requested = useMemo(() => requestedBranch(branchLike, globalThis.location?.search ?? ''), [branchLike]);
 
   const [step, setStep] = useState<WizardStep>('intro');
 
@@ -172,7 +175,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
       {step === 'selectFile' && (
         <StepSelectFile
           projectKey={component.key}
-          branchLikeName={branchLike?.name}
+          requested={requested}
           vexFile={vexFile}
           selectedBranch={selectedBranch}
           parseError={parseError}

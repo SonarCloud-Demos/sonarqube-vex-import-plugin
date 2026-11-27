@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BranchInfo, fetchLongLivedBranches } from '../../api/projectBranches';
 import { StatusMapping } from '../../vex/transitionMapping';
+import { pickBranch, RequestedBranch } from '../../utils/requestedBranch';
 import { StatusMappingPanel } from './StatusMappingPanel';
 
 const cardStyle: React.CSSProperties = {
@@ -41,7 +42,7 @@ function disabledStyle(style: React.CSSProperties, disabled: boolean): React.CSS
 
 export interface StepSelectFileProps {
   projectKey: string;
-  branchLikeName?: string;
+  requested: RequestedBranch;
   vexFile: File | null;
   selectedBranch: BranchInfo | null;
   parseError: string | null;
@@ -56,7 +57,7 @@ export interface StepSelectFileProps {
 
 export function StepSelectFile({
   projectKey,
-  branchLikeName,
+  requested,
   vexFile,
   selectedBranch,
   parseError,
@@ -71,6 +72,7 @@ export function StepSelectFile({
   const [branches, setBranches] = useState<BranchInfo[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [branchesError, setBranchesError] = useState<string | null>(null);
+  const [branchNotice, setBranchNotice] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,8 +83,9 @@ export function StepSelectFile({
       .then((result) => {
         if (cancelled) return;
         setBranches(result);
-        const preferred = result.find((b) => b.name === branchLikeName) ?? result.find((b) => b.isMain) ?? result[0];
-        if (preferred) onBranchSelected(preferred);
+        const choice = pickBranch(result, requested, selectedBranch);
+        setBranchNotice(choice.notice ?? null);
+        if (choice.branch) onBranchSelected(choice.branch);
       })
       .catch((e) => !cancelled && setBranchesError(e instanceof Error ? e.message : String(e)))
       .finally(() => !cancelled && setBranchesLoading(false));
@@ -116,6 +119,11 @@ export function StepSelectFile({
         </label>
         {branchesLoading && <p style={{ fontSize: '13px', color: '#666' }}>Loading branches...</p>}
         {branchesError && <p style={{ fontSize: '13px', color: '#dc2626' }}>Error: {branchesError}</p>}
+        {branchNotice && (
+          <p style={{ fontSize: '12px', color: '#92400e', margin: '0 0 6px' }} data-testid="branch-notice">
+            {branchNotice}
+          </p>
+        )}
         {!branchesLoading && !branchesError && (
           <select
             id="vex-branch-select"
