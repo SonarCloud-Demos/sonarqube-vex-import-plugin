@@ -1,6 +1,6 @@
 import React from 'react';
 import { AssessmentResult } from '../../vex/assessImport';
-import { thBase, tdStyle } from '../shared/tableUtils';
+import { thBase, tdStyle, formatDate } from '../shared/tableUtils';
 
 const cardStyle: React.CSSProperties = {
   background: '#fff',
@@ -65,10 +65,40 @@ export function StepAssessment({ loading, error, assessment, mappingDescription 
         Status mapping: {mappingDescription === 'default' ? 'default' : `custom (${mappingDescription})`}
       </p>
       {conflicts.length > 0 && (
-        <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}>
+        <div
+          style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}
+          data-testid="conflicts-card"
+        >
           <strong>Needs a decision ({conflicts.length})</strong> - these entries would otherwise be importable, but
           SonarQube's status was changed manually more recently than this VEX file's own reference date (or the file
           has no date to compare). You'll resolve each one, individually or in bulk, in the next step.
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', background: '#fff' }}>
+            <thead>
+              <tr>
+                <th style={thBase}>CVE</th>
+                <th style={thBase}>Package</th>
+                <th style={thBase}>Current status</th>
+                <th style={thBase}>Proposed status</th>
+                <th style={thBase}>Last changed in SonarQube</th>
+                <th style={thBase}>VEX date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {conflicts.map((c) => (
+                <tr key={c.item.issueReleaseKey}>
+                  <td style={tdStyle}>{c.item.vulnerabilityId}</td>
+                  <td style={tdStyle}>{c.item.packageUrl}</td>
+                  <td style={tdStyle}>{c.item.currentStatus}</td>
+                  <td style={tdStyle}>{c.item.transitionKey}</td>
+                  <td style={tdStyle}>
+                    {formatDate(c.sonarLastChangeDate)}
+                    {c.sonarLastChangeUser ? ` by ${c.sonarLastChangeUser}` : ''}
+                  </td>
+                  <td style={tdStyle}>{c.vexReferenceDate ? formatDate(c.vexReferenceDate) : '(none)'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -109,7 +139,7 @@ export function StepAssessment({ loading, error, assessment, mappingDescription 
           Not importable ({blocked.length})
         </h2>
         {blocked.length === 0 ? (
-          <p style={{ fontSize: '13px', color: '#666' }}>Every VEX entry could be matched and imported.</p>
+          <p style={{ fontSize: '13px', color: '#666' }}>No VEX entry was rejected.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
