@@ -93,6 +93,17 @@ class MapAnalysisTest(unittest.TestCase):
         )
 
 
+class JoinCommentsTest(unittest.TestCase):
+    def test_user_comment_on_next_line(self):
+        self.assertEqual(vex_import.join_comments('VEX import: state=in_triage', ' VEX Import user Testing '),
+                         'VEX import: state=in_triage\nVEX Import user Testing')
+
+    def test_no_user_comment(self):
+        self.assertEqual(vex_import.join_comments('safe', ''), 'safe')
+        self.assertEqual(vex_import.join_comments('safe', '   '), 'safe')
+        self.assertEqual(vex_import.join_comments('safe', None), 'safe')
+
+
 class BuildMappingTest(unittest.TestCase):
     def test_default(self):
         self.assertEqual(vex_import.build_mapping(), vex_import.DEFAULT_MAPPING)

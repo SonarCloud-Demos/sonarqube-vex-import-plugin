@@ -495,6 +495,14 @@ def fetch_detected_risks(base_url, token, project, branch):
     return risks
 
 
+def join_comments(vex_comment, user_comment):
+    """Puts the --comment text on the next line after the VEX comment
+    (SonarQube renders a line break in a dependency-risk comment as <br/>).
+    KEEP IN SYNC WITH src/main/ts/vex/comments.ts"""
+    extra = (user_comment or '').strip()
+    return f'{vex_comment}\n{extra}' if extra else vex_comment
+
+
 def print_plan(importable, blocked, conflicts, unchanged=(), mapping=None):
     print(f'\nStatus mapping: {describe_mapping(mapping or DEFAULT_MAPPING)}')
     print(f'\nImportable changes ({len(importable)}):')
@@ -546,7 +554,7 @@ def main(argv):
     parser.add_argument('--branch', required=True, help='Target branch name (no default — must be explicit)')
     parser.add_argument('--vex-file', required=True, help='Path to the CycloneDX 1.6 VEX JSON file')
     parser.add_argument('--token', default=None, help='SonarQube user token. Prefer the SONAR_TOKEN environment variable over this flag if you want to avoid the token appearing in shell history or process listings. This script never embeds or stores a token itself.')
-    parser.add_argument('--comment', default='', help='Optional comment appended to every imported item, in addition to the justification imported from the VEX file')
+    parser.add_argument('--comment', default='', help='Optional comment added to every imported item, on the next line after the justification imported from the VEX file')
     parser.add_argument('--conflict-resolution', choices=['keep', 'apply', 'ask'], default='ask',
                          help="How to handle a VEX entry that conflicts with a status SonarQube shows was already changed manually more recently: 'ask' (default, interactive prompt per conflict), 'keep' (never apply), 'apply' (always apply, no prompting — for CI)")
     parser.add_argument('--undecided', choices=['skip', 'open'], default=None,
@@ -591,10 +599,9 @@ def main(argv):
             print('Aborted.')
             return EXIT_OK
 
-    extra_comment = args.comment.strip()
     failures = 0
     for item in to_apply:
-        comment = f"{item['comment']} — {extra_comment}" if extra_comment else item['comment']
+        comment = join_comments(item['comment'], args.comment)
         ok, error = api_post(base_url, token, '/api/v2/sca/issues-releases/change-status', {
             'issueReleaseKey': item['issue_release_key'],
             'transitionKey': item['transition_key'],

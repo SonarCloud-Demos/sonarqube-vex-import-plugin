@@ -5,6 +5,7 @@ import { applyStatusChanges, StatusChangeResult } from '../api/scaChangeStatus';
 import { fetchIssueReleaseChangelog } from '../api/scaChangelog';
 import { syncPluginSettings } from '../api/pluginSettings';
 import { assessImport, AssessmentResult, PlanItem } from '../vex/assessImport';
+import { joinComments } from '../vex/comments';
 import { parseVex, VexParseError, VexParseResult } from '../vex/parseVex';
 import { DEFAULT_MAPPING, describeMapping, StatusMapping } from '../vex/transitionMapping';
 import { Disclaimer } from './shared/Disclaimer';
@@ -111,11 +112,10 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
     setApplyLoading(true);
     setApplyError(null);
     try {
-      const trimmedUserComment = userComment.trim();
       const changes = finalImportable.map((item) => ({
         issueReleaseKey: item.issueReleaseKey,
         transitionKey: item.transitionKey,
-        comment: trimmedUserComment ? `${item.comment} - ${trimmedUserComment}` : item.comment,
+        comment: joinComments(item.comment, userComment),
       }));
       const results = await applyStatusChanges(changes);
       setApplyResults(results);

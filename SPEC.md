@@ -100,9 +100,10 @@ step 4 (approve)
   │
   ├── finalImportable = assessment.importable ++ conflicts resolved as 'apply'
   │
-  ├── user may type an additional comment — appended to every item's comment,
-  │     in addition to (not instead of) the one derived from the VEX file:
-  │     `${itemComment} — ${userComment}`
+  ├── user may type an additional comment — added to every item's comment,
+  │     in addition to (not instead of) the one derived from the VEX file, on
+  │     the next line: `${itemComment}\n${userComment}` (rendered as <br/>)
+  │     (joinComments in vex/comments.ts / join_comments in the CLI)
   │
   ├── applyStatusChanges(changes)                 (changes built from finalImportable)
   │     bulk-first: one POST /api/v2/sca/issues-releases/bulk-change,
