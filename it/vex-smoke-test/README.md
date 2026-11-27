@@ -52,7 +52,7 @@ python3 ../../cli/vex-import.py \
 | `resolved.json` | `resolved` → `FIXED` |
 | `in-triage.json` | `in_triage` → blocked, not actionable |
 | `not-detected.json` | a CVE/package this branch never had → blocked, not detected |
-| `undecided-mixed.json` | the three undecided forms on `log4j-core` — `in_triage` (CVE-2021-44228), no `analysis.state` (CVE-2021-45046), unrecognized `under_review` (CVE-2021-45105): not importable by default; with *Import them as Open* / `--undecided open`, reported as "already Open" or planned as `REOPEN` depending on each risk's current status |
+| `undecided-mixed.json` | the three undecided forms on `log4j-core` — `in_triage` (CVE-2021-44228), no `analysis.state` (CVE-2021-45046), unrecognized `under_review` (CVE-2021-45105): not importable by default; with *Import them as Open* / `--undecided open`, reported as "Already Open or Confirmed, no change needed" for Open and Confirmed risks, or planned as `REOPEN` for Accepted, Safe or Fixed ones (a conflict to resolve when the risk has a status history) |
 | `conflict.json` | a real manual status change already exists on the risk, and the VEX carries an old (or no) reference date → conflict, needs resolution |
 
 `conflict.json` only produces an actual conflict once the target risk has real SonarQube-side history — e.g. after you've already changed its status once via the UI or `sonar api post .../change-status`, or after importing one of the other fixtures against it first. Against a risk with no history yet, it will simply be importable.

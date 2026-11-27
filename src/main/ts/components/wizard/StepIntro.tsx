@@ -206,7 +206,8 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
               <td style={tdStyle}>-</td>
               <td style={tdStyle}>
                 not importable by default, or Open if you choose so: Open and Confirmed risks stay as they are,
-                Accepted, Safe or Fixed risks are reopened after you confirm
+                Accepted, Safe or Fixed risks are reopened (after you confirm it on the conflicts step when the
+                risk has a status history in SonarQube)
               </td>
             </tr>
           </tbody>
