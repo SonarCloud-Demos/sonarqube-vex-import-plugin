@@ -130,7 +130,7 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
               <td style={tdStyle}>
                 <code>analysis.state</code>, <code>analysis.response</code>
               </td>
-              <td style={tdStyle}>Status transition (Safe / Fixed / Accepted / Confirmed - see below)</td>
+              <td style={tdStyle}>Status transition (Safe / Fixed / Accepted / Confirmed / Open - see below)</td>
             </tr>
             <tr>
               <td style={tdStyle}>
