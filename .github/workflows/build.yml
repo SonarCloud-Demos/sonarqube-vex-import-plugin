@@ -1,0 +1,49 @@
+name: Build
+
+# Builds and tests on every pull request and push to main, so dependency and
+# code changes are validated before a release is attempted (the release
+# workflow only runs on demand).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install frontend dependencies (yarn)
+        env:
+          # Same as the release workflow: CI runners reach the public npm
+          # registry directly; .yarnrc.yml's Repox mirror is for local dev.
+          YARN_NPM_REGISTRY_SERVER: https://registry.npmjs.org
+        run: node .yarn/releases/yarn-3.4.1.cjs install --immutable
+
+      - name: Run frontend unit tests (jest)
+        run: node .yarn/releases/yarn-3.4.1.cjs test
+
+      - name: Run CLI unit tests
+        run: python3 -m unittest discover -s cli -p 'test_*.py'
+
+      # jest already ran in the step above; skip the pom's exec-maven-plugin
+      # `yarn test` execution so the suite doesn't run twice.
+      - name: Build plugin
+        run: mvn -B package -DskipTests -DskipFrontendTests=true
