@@ -17,7 +17,7 @@ function Harness({ requested }: { requested: RequestedBranch }) {
   return (
     <StepSelectFile
       projectKey="vex-import-smoke-test"
-      requested={requested}
+      getRequestedBranch={() => requested}
       vexFile={null}
       selectedBranch={selected}
       parseError={null}

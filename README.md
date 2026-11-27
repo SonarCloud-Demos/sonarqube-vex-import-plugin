@@ -1,6 +1,6 @@
 # SonarQube VEX Import Plugin
 
-> ⚠️ **Experimental** — This is a personal project, not an official Sonar product. It is not endorsed or supported by SonarSource.
+> ⚠️ **Provided as is.** This plugin is not part of Sonar's officially supported products, and Sonar Support does not cover it.
 
 **Main repository:** [sonar-solutions/sonarqube-vex-import-plugin](https://github.com/sonar-solutions/sonarqube-vex-import-plugin)
 — this is where development happens; open issues/PRs here.

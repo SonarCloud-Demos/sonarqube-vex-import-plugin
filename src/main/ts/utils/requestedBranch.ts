@@ -14,10 +14,12 @@ export interface RequestedBranch {
  * first, then the URL.
  */
 export function requestedBranch(branchLike: { name?: string } | undefined, search: string): RequestedBranch {
+  if (branchLike?.name) {
+    return { branch: branchLike.name };
+  }
   const params = new URLSearchParams(search);
   const pullRequest = params.get('pullRequest') || undefined;
-  const branch = branchLike?.name || params.get('branch') || undefined;
-  return pullRequest ? { pullRequest } : { branch };
+  return pullRequest ? { pullRequest } : { branch: params.get('branch') || undefined };
 }
 
 export interface BranchChoice {

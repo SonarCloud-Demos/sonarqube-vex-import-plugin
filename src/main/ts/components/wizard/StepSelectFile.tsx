@@ -42,7 +42,9 @@ function disabledStyle(style: React.CSSProperties, disabled: boolean): React.CSS
 
 export interface StepSelectFileProps {
   projectKey: string;
-  requested: RequestedBranch;
+  // Evaluated each time this step opens, so a branch switch in SonarQube's own
+  // branch selector (which only changes the URL on 2026.5) is picked up.
+  getRequestedBranch: () => RequestedBranch;
   vexFile: File | null;
   selectedBranch: BranchInfo | null;
   parseError: string | null;
@@ -57,7 +59,7 @@ export interface StepSelectFileProps {
 
 export function StepSelectFile({
   projectKey,
-  requested,
+  getRequestedBranch,
   vexFile,
   selectedBranch,
   parseError,
@@ -83,7 +85,7 @@ export function StepSelectFile({
       .then((result) => {
         if (cancelled) return;
         setBranches(result);
-        const choice = pickBranch(result, requested, selectedBranch);
+        const choice = pickBranch(result, getRequestedBranch(), selectedBranch);
         setBranchNotice(choice.notice ?? null);
         if (choice.branch) onBranchSelected(choice.branch);
       })

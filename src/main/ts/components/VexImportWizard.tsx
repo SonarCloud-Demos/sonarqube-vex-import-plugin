@@ -44,8 +44,6 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
     syncPluginSettings().then(({ enabled }) => setPluginEnabled(enabled));
   }, []);
 
-  const requested = useMemo(() => requestedBranch(branchLike, globalThis.location?.search ?? ''), [branchLike]);
-
   const [step, setStep] = useState<WizardStep>('intro');
 
   const [selectedBranch, setSelectedBranch] = useState<BranchInfo | null>(null);
@@ -138,6 +136,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
     setAssessment(null);
     setAssessmentError(null);
     setConflictResolutions(new Map());
+    setMapping({ ...DEFAULT_MAPPING });
     setUserComment('');
     setApplyResults(null);
     setApplyError(null);
@@ -175,7 +174,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
       {step === 'selectFile' && (
         <StepSelectFile
           projectKey={component.key}
-          requested={requested}
+          getRequestedBranch={() => requestedBranch(branchLike, globalThis.location?.search ?? '')}
           vexFile={vexFile}
           selectedBranch={selectedBranch}
           parseError={parseError}

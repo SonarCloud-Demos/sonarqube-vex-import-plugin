@@ -78,7 +78,7 @@ export function stateKeyFor(analysis: CycloneDxAnalysis | undefined): VexStateKe
   if (!state) {
     return 'missing';
   }
-  if (!KNOWN_STATES.has(state)) {
+  if (typeof state !== 'string' || !KNOWN_STATES.has(state)) {
     return 'unrecognized';
   }
   if (state === 'exploitable') {
@@ -88,7 +88,7 @@ export function stateKeyFor(analysis: CycloneDxAnalysis | undefined): VexStateKe
 }
 
 function buildComment(analysis: CycloneDxAnalysis | undefined): string {
-  const detail = analysis?.detail?.trim();
+  const detail = typeof analysis?.detail === 'string' ? analysis.detail.trim() : '';
   if (detail) {
     return detail;
   }
@@ -99,14 +99,19 @@ function buildComment(analysis: CycloneDxAnalysis | undefined): string {
   return `VEX import: state=${analysis.state}${justificationSuffix}`;
 }
 
+/** The raw state as written in the file, printable even when it isn't a string. KEEP IN SYNC WITH cli/vex-import.py (_printable_state) */
+function printableState(state: unknown): string {
+  return typeof state === 'string' ? state : JSON.stringify(state);
+}
+
 function skipReason(analysis: CycloneDxAnalysis | undefined, stateKey: VexStateKey): string {
   if (DEFAULT_MAPPING[stateKey] === 'SKIP') {
     // Same wording as v0.1.0 so the default plan stays identical.
     return stateKey === 'missing'
       ? 'VEX entry has no analysis.state'
-      : `VEX analysis.state '${analysis?.state}' is not actionable`;
+      : `VEX analysis.state '${printableState(analysis?.state)}' is not actionable`;
   }
-  return `VEX analysis.state '${analysis?.state}' is mapped to Skip`;
+  return `VEX analysis '${STATE_LABELS[stateKey]}' is mapped to Skip`;
 }
 
 /**

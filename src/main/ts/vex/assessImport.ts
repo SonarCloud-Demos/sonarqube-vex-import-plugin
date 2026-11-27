@@ -46,6 +46,11 @@ export type ChangelogFetcher = (issueReleaseKey: string) => Promise<ChangelogEnt
 interface Provisional {
   item: PlanItem;
   vexReferenceDate?: string;
+  // A reopen never silently overrides a decision made in SonarQube: when the
+  // risk has any status-change history, it always needs a decision, whatever
+  // the dates. (A VEX entry without its own date falls back to the document's
+  // export timestamp, which is newer than any past triage for a fresh export.)
+  alwaysConflictOnHistory: boolean;
 }
 
 function matchKey(vulnerabilityId: string, packageUrl: string): string {
@@ -170,6 +175,7 @@ export async function assessImport(
         comment,
       },
       vexReferenceDate: candidate.vexReferenceDate,
+      alwaysConflictOnHistory: transitionKey === 'REOPEN',
     });
   }
 
@@ -199,7 +205,8 @@ export async function assessImport(
 
     const sonarDate = parseDateSafe(lastStatusChange.createdAt);
     const vexDate = parseDateSafe(p.vexReferenceDate);
-    const vexIsSameOrNewer = vexDate && sonarDate && vexDate.getTime() >= sonarDate.getTime();
+    const vexIsSameOrNewer =
+      !p.alwaysConflictOnHistory && vexDate && sonarDate && vexDate.getTime() >= sonarDate.getTime();
 
     if (vexIsSameOrNewer) {
       importable.push(p.item);

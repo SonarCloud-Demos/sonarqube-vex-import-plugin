@@ -14,6 +14,10 @@ describe('requestedBranch', () => {
     expect(requestedBranch(undefined, '?id=vex-import-smoke-test&branch=release-1.0&qualifier=TRK')).toEqual({ branch: 'release-1.0' });
   });
 
+  it('lets branchLike win over a pullRequest left in the URL', () => {
+    expect(requestedBranch({ name: 'release-1' }, '?id=p&pullRequest=12')).toEqual({ branch: 'release-1' });
+  });
+
   it('reports a pull request from the URL', () => {
     expect(requestedBranch(undefined, '?id=p&pullRequest=42')).toEqual({ pullRequest: '42' });
   });

@@ -198,8 +198,37 @@ DEFAULT_MAPPING = {
 _KNOWN_STATES = {'not_affected', 'false_positive', 'resolved', 'resolved_with_pedigree', 'exploitable', 'in_triage'}
 
 
+STATE_LABELS = {
+    'not_affected': 'not_affected',
+    'false_positive': 'false_positive',
+    'resolved': 'resolved',
+    'resolved_with_pedigree': 'resolved_with_pedigree',
+    'exploitable': 'exploitable (otherwise)',
+    'exploitable_will_not_fix': 'exploitable + will_not_fix',
+    'in_triage': 'in_triage',
+    'missing': 'missing analysis.state',
+    'unrecognized': 'unrecognized analysis.state',
+}
+TARGET_LABELS = {
+    'SAFE': 'Safe', 'FIXED': 'Fixed', 'ACCEPT': 'Accepted', 'CONFIRM': 'Confirmed',
+    'OPEN': 'Open', 'SKIP': 'Skip (not importable)',
+}
+
+
+def _as_analysis(analysis):
+    """A malformed VEX entry can carry a non-object analysis (a string, a
+    list); treat it as absent, like the wizard does."""
+    return analysis if isinstance(analysis, dict) else {}
+
+
+def _printable_state(state):
+    """KEEP IN SYNC WITH src/main/ts/vex/transitionMapping.ts (printableState)"""
+    return state if isinstance(state, str) else json.dumps(state)
+
+
 def state_key_for(analysis):
-    state = (analysis or {}).get('state')
+    analysis = _as_analysis(analysis)
+    state = analysis.get('state')
     if not state:
         return 'missing'
     if not isinstance(state, str) or state not in _KNOWN_STATES:
@@ -236,12 +265,13 @@ def describe_mapping(mapping):
     changed = [k for k in VEX_STATE_KEYS if mapping[k] != DEFAULT_MAPPING[k]]
     if not changed:
         return 'default'
-    return ', '.join(f'{k} -> {mapping[k]}' for k in changed)
+    return ', '.join(f'{STATE_LABELS[k]} → {TARGET_LABELS[mapping[k]]}' for k in changed)
 
 
 def _build_comment(analysis):
-    analysis = analysis or {}
-    detail = (analysis.get('detail') or '').strip()
+    analysis = _as_analysis(analysis)
+    detail = analysis.get('detail')
+    detail = detail.strip() if isinstance(detail, str) else ''
     if detail:
         return detail
     state = analysis.get('state')
@@ -260,13 +290,13 @@ def map_analysis_to_transition(analysis, mapping=None):
     state_key = state_key_for(analysis)
     target = mapping[state_key]
     if target == 'SKIP':
-        state = (analysis or {}).get('state')
+        state = _as_analysis(analysis).get('state')
         if DEFAULT_MAPPING[state_key] == 'SKIP':
             # Same wording as v0.1.0 so the default plan stays identical.
             if state_key == 'missing':
                 return True, 'VEX entry has no analysis.state', None
-            return True, f"VEX analysis.state '{state}' is not actionable", None
-        return True, f"VEX analysis.state '{state}' is mapped to Skip", None
+            return True, f"VEX analysis.state '{_printable_state(state)}' is not actionable", None
+        return True, f"VEX analysis '{STATE_LABELS[state_key]}' is mapped to Skip", None
     return False, target, _build_comment(analysis)
 
 
@@ -394,6 +424,10 @@ def assess_import(candidates, issues, detected_risks, fetch_changelog, mapping=N
                 'comment': comment,
             },
             'vex_reference_date': candidate.get('vex_reference_date'),
+            # A reopen never silently overrides a decision made in SonarQube:
+            # with any status-change history it always needs a decision.
+            # KEEP IN SYNC WITH src/main/ts/vex/assessImport.ts
+            'always_conflict_on_history': transition_key == 'REOPEN',
         })
 
     # Phase 2: sequential (stdlib-only, matches this script's existing
@@ -420,7 +454,8 @@ def assess_import(candidates, issues, detected_risks, fetch_changelog, mapping=N
 
         sonar_date = parse_date_safe(last_status_change['created_at'])
         vex_date = parse_date_safe(p['vex_reference_date'])
-        vex_is_same_or_newer = vex_date is not None and sonar_date is not None and vex_date >= sonar_date
+        vex_is_same_or_newer = (not p['always_conflict_on_history'] and vex_date is not None
+                                and sonar_date is not None and vex_date >= sonar_date)
 
         if vex_is_same_or_newer:
             importable.append(item)
@@ -504,7 +539,8 @@ def join_comments(vex_comment, user_comment):
 
 
 def print_plan(importable, blocked, conflicts, unchanged=(), mapping=None):
-    print(f'\nStatus mapping: {describe_mapping(mapping or DEFAULT_MAPPING)}')
+    described = describe_mapping(mapping or DEFAULT_MAPPING)
+    print(f"\nStatus mapping: {'default' if described == 'default' else f'custom ({described})'}")
     print(f'\nImportable changes ({len(importable)}):')
     for item in importable:
         print(f"  {item['vulnerability_id']} / {item['package_url']}: {item['current_status']} -> {item['transition_key']}  ({item['comment']})")

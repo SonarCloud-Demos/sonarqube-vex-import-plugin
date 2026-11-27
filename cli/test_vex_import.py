@@ -93,11 +93,28 @@ class MapAnalysisTest(unittest.TestCase):
                 self.assertTrue(blocked)
                 self.assertIn('is not actionable', reason)
 
+    def test_non_object_analysis_is_missing_not_a_crash(self):
+        for analysis in ('in_triage', [], 42):
+            with self.subTest(analysis=analysis):
+                self.assertEqual(vex_import.state_key_for(analysis), 'missing')
+                self.assertEqual(vex_import.map_analysis_to_transition(analysis),
+                                 (True, 'VEX entry has no analysis.state', None))
+
+    def test_printable_reason_for_non_string_state(self):
+        self.assertEqual(vex_import.map_analysis_to_transition({'state': {'x': 1}})[1],
+                         'VEX analysis.state \'{"x": 1}\' is not actionable')
+
+    def test_exploitable_will_not_fix_row_is_named_when_skipped(self):
+        mapping = vex_import.build_mapping(overrides=['exploitable_will_not_fix=skip'])
+        self.assertEqual(
+            vex_import.map_analysis_to_transition({'state': 'exploitable', 'response': ['will_not_fix']}, mapping)[1],
+            "VEX analysis 'exploitable + will_not_fix' is mapped to Skip")
+
     def test_decided_state_mapped_to_skip_has_distinct_reason(self):
         mapping = vex_import.build_mapping(overrides=['resolved=skip'])
         self.assertEqual(
             vex_import.map_analysis_to_transition({'state': 'resolved'}, mapping),
-            (True, "VEX analysis.state 'resolved' is mapped to Skip", None),
+            (True, "VEX analysis 'resolved' is mapped to Skip", None),
         )
 
 
@@ -125,7 +142,7 @@ class BuildMappingTest(unittest.TestCase):
         self.assertEqual(mapping['false_positive'], 'CONFIRM')
         self.assertEqual(
             vex_import.describe_mapping(mapping),
-            'false_positive -> CONFIRM, in_triage -> OPEN, unrecognized -> OPEN',
+            'false_positive → Confirmed, in_triage → Open, unrecognized analysis.state → Open',
         )
 
     def test_rejects_bad_input(self):
@@ -178,6 +195,18 @@ class AssessImportTest(unittest.TestCase):
         )
         self.assertEqual(importable, [])
         self.assertEqual(blocked[0]['reason'], 'transition REOPEN is not valid from current status FIXED for this risk')
+
+    def test_reopen_with_history_always_conflicts_even_if_vex_is_newer(self):
+        history = [{
+            'createdAt': '2026-11-20T00:00:00Z',
+            'changeData': [{'fieldName': 'status', 'oldValue': 'OPEN', 'newValue': 'SAFE'}],
+        }]
+        importable, _, conflicts, _ = self.assess(
+            {'state': 'in_triage'}, [risk('SAFE', ('REOPEN',))], vex_import.build_mapping(undecided='open'),
+            fetch_changelog=lambda key: history, vex_reference_date='2026-12-01T00:00:00Z',
+        )
+        self.assertEqual(importable, [])
+        self.assertEqual(len(conflicts), 1)
 
     def test_reopen_goes_through_conflict_guard(self):
         history = [{

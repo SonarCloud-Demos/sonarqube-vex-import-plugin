@@ -350,6 +350,31 @@ describe('assessImport', () => {
       expect(result.conflicts[0].item.transitionKey).toBe('REOPEN');
     });
 
+    it('always asks for a decision before reopening a risk with history, even when the VEX looks newer', async () => {
+      const candidate = {
+        vulnerabilityId: 'CVE-2024-1111',
+        packageUrl: 'pkg:npm/express@4.19.2',
+        analysis: { state: 'in_triage' },
+        vexReferenceDate: '2026-12-01T00:00:00Z',
+      };
+      const fetchChangelog: ChangelogFetcher = async () => [statusChangeAt('2026-11-20T00:00:00Z')];
+      const result = await assessImport(
+        vex({ candidates: [candidate] }),
+        [risk({ status: 'SAFE', transitions: ['REOPEN'] })],
+        fetchChangelog,
+        undecidedOpen
+      );
+      expect(result.importable).toEqual([]);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].item.transitionKey).toBe('REOPEN');
+    });
+
+    it('still imports a reopen directly when the risk has no status-change history', async () => {
+      const result = await assessImport(inTriage(), [risk({ status: 'CONFIRM', transitions: ['REOPEN'] })], noHistory, undecidedOpen);
+      expect(result.conflicts).toEqual([]);
+      expect(result.importable[0].transitionKey).toBe('REOPEN');
+    });
+
     it('does not fetch history for an already-Open risk (nothing to change)', async () => {
       const fetchChangelog = jest.fn(async () => [] as ChangelogEntry[]);
       await assessImport(inTriage(), [risk({ status: 'OPEN' })], fetchChangelog, undecidedOpen);

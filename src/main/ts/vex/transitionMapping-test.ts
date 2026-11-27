@@ -42,8 +42,26 @@ describe('mapAnalysisToTransition', () => {
     expect(result).toEqual({ blocked: true, stateKey: 'in_triage', reason: "VEX analysis.state 'in_triage' is not actionable" });
   });
 
-  it('classifies a non-string state as unrecognized', () => {
-    expect(mapAnalysisToTransition({ state: ['in_triage'] as unknown as string })).toMatchObject({ blocked: true, stateKey: 'unrecognized' });
+  it('classifies a non-string state as unrecognized, with a printable reason', () => {
+    expect(mapAnalysisToTransition({ state: ['in_triage'] as unknown as string })).toEqual({
+      blocked: true,
+      stateKey: 'unrecognized',
+      reason: `VEX analysis.state '["in_triage"]' is not actionable`,
+    });
+  });
+
+  it('names the exploitable + will_not_fix row when it is mapped to Skip', () => {
+    const mapping: StatusMapping = { ...DEFAULT_MAPPING, exploitable_will_not_fix: 'SKIP' };
+    expect(mapAnalysisToTransition({ state: 'exploitable', response: ['will_not_fix'] }, mapping)).toMatchObject({
+      blocked: true,
+      reason: "VEX analysis 'exploitable + will_not_fix' is mapped to Skip",
+    });
+  });
+
+  it('ignores a non-string detail', () => {
+    expect(mapAnalysisToTransition({ state: 'resolved', detail: 42 as unknown as string })).toMatchObject({
+      comment: 'VEX import: state=resolved',
+    });
   });
 
   it('blocks an unrecognized state', () => {
@@ -97,7 +115,7 @@ describe('mapAnalysisToTransition', () => {
       expect(mapAnalysisToTransition({ state: 'resolved' }, mapping)).toEqual({
         blocked: true,
         stateKey: 'resolved',
-        reason: "VEX analysis.state 'resolved' is mapped to Skip",
+        reason: "VEX analysis 'resolved' is mapped to Skip",
       });
     });
 
