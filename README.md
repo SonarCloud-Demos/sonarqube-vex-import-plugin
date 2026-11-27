@@ -1,5 +1,10 @@
 # SonarQube VEX Import Plugin
 
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=sonar-solutions_sonarqube-vex-import-plugin&metric=alert_status&token=a5ea953a6b37a816fc8ec61482ff3cd085323f28)](https://sonarcloud.io/summary/new_code?id=sonar-solutions_sonarqube-vex-import-plugin)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=sonar-solutions_sonarqube-vex-import-plugin&metric=security_rating&token=a5ea953a6b37a816fc8ec61482ff3cd085323f28)](https://sonarcloud.io/summary/new_code?id=sonar-solutions_sonarqube-vex-import-plugin)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=sonar-solutions_sonarqube-vex-import-plugin&metric=reliability_rating&token=a5ea953a6b37a816fc8ec61482ff3cd085323f28)](https://sonarcloud.io/summary/new_code?id=sonar-solutions_sonarqube-vex-import-plugin)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=sonar-solutions_sonarqube-vex-import-plugin&metric=sqale_rating&token=a5ea953a6b37a816fc8ec61482ff3cd085323f28)](https://sonarcloud.io/summary/new_code?id=sonar-solutions_sonarqube-vex-import-plugin)
+
 > ⚠️ **Provided as is.** This plugin is not part of Sonar's officially supported products, and Sonar Support does not cover it.
 
 **Main repository:** [sonar-solutions/sonarqube-vex-import-plugin](https://github.com/sonar-solutions/sonarqube-vex-import-plugin)
