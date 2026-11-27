@@ -43,7 +43,7 @@ jobs:
       - name: Run CLI unit tests
         run: python3 -m unittest discover -s cli -p 'test_*.py'
 
-      # The frontend-maven-plugin test execution is skipped in pom.xml; the
-      # jest step above runs the frontend tests.
+      # jest already ran in the step above; skip the pom's exec-maven-plugin
+      # `yarn test` execution so the suite doesn't run twice.
       - name: Build plugin
-        run: mvn -B package -DskipTests
+        run: mvn -B package -DskipTests -DskipFrontendTests=true
