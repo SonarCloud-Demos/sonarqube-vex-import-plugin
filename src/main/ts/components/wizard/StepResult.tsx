@@ -25,10 +25,11 @@ const buttonStyle: React.CSSProperties = {
 export interface StepResultProps {
   finalImportable: PlanItem[];
   results: StatusChangeResult[];
+  mappingDescription?: string;
   onStartOver: () => void;
 }
 
-export function StepResult({ finalImportable, results, onStartOver }: Readonly<StepResultProps>) {
+export function StepResult({ finalImportable, results, mappingDescription = 'default', onStartOver }: Readonly<StepResultProps>) {
   const resultsByKey = new Map(results.map((r) => [r.issueReleaseKey, r]));
   const succeeded = results.filter((r) => r.ok).length;
   const failed = results.length - succeeded;
@@ -41,6 +42,9 @@ export function StepResult({ finalImportable, results, onStartOver }: Readonly<S
         <p style={{ fontSize: '13px', color: '#444' }}>
           <Badge label={`${succeeded} applied`} color="#2da44e" />{' '}
           {failed > 0 && <Badge label={`${failed} failed`} color="#d02f3a" />}
+        </p>
+        <p style={{ fontSize: '12px', color: '#666', marginTop: '6px' }} data-testid="result-mapping-description">
+          Status mapping: {mappingDescription === 'default' ? 'default' : `custom (${mappingDescription})`}
         </p>
 
         {missing.length > 0 && (

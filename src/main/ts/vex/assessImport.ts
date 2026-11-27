@@ -1,7 +1,7 @@
 import { DetectedRisk } from '../api/scaDetectedRisks';
 import { ChangelogEntry, findLastStatusChange } from '../api/scaChangelog';
 import { concurrentMap } from '../utils/concurrentMap';
-import { mapAnalysisToTransition, TransitionKey } from './transitionMapping';
+import { DEFAULT_MAPPING, mapAnalysisToTransition, StatusMapping, TransitionKey } from './transitionMapping';
 import { VexParseResult } from './parseVex';
 
 export interface PlanItem {
@@ -27,10 +27,18 @@ export interface ConflictItem {
   sonarLastChangeComment?: string;
 }
 
+/** A VEX entry mapped to Open whose risk is already Open: nothing to change. */
+export interface UnchangedItem {
+  vulnerabilityId: string;
+  packageUrl: string;
+  currentStatus: string;
+}
+
 export interface AssessmentResult {
   importable: PlanItem[];
   blocked: BlockedItem[];
   conflicts: ConflictItem[];
+  unchanged: UnchangedItem[];
 }
 
 export type ChangelogFetcher = (issueReleaseKey: string) => Promise<ChangelogEntry[]>;
@@ -59,6 +67,10 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
  * recently than the VEX's own reference date (or has history and the VEX
  * carries no date to compare against).
  *
+ * `mapping` is the user-adjustable state → status mapping (defaults to
+ * DEFAULT_MAPPING, i.e. v0.1.0 behavior). A row mapped to Open becomes a
+ * REOPEN transition, or an `unchanged` entry when the risk is already Open.
+ *
  * `fetchChangelog` is required and explicit (no default pointing at the real
  * network fetch) so this stays a pure, network-free function to unit test —
  * callers pass the real src/main/ts/api/scaChangelog.ts fetch in production.
@@ -66,8 +78,10 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
 export async function assessImport(
   vex: VexParseResult,
   detected: DetectedRisk[],
-  fetchChangelog: ChangelogFetcher
+  fetchChangelog: ChangelogFetcher,
+  mapping: StatusMapping = DEFAULT_MAPPING
 ): Promise<AssessmentResult> {
+  const unchanged: UnchangedItem[] = [];
   const blocked: BlockedItem[] = vex.issues.map((issue) => ({
     vulnerabilityId: issue.vulnerabilityId,
     packageUrl: issue.packageUrl,
@@ -110,26 +124,41 @@ export async function assessImport(
       continue;
     }
 
-    const mapping = mapAnalysisToTransition(candidate.analysis);
-    if (mapping.blocked) {
+    const mapped = mapAnalysisToTransition(candidate.analysis, mapping);
+    if (mapped.blocked) {
       blocked.push({
         vulnerabilityId: candidate.vulnerabilityId,
         packageUrl: candidate.packageUrl,
-        reason: mapping.reason,
+        reason: mapped.reason,
       });
       continue;
     }
 
-    if (!risk.transitions.includes(mapping.transitionKey)) {
+    let transitionKey: TransitionKey;
+    if (mapped.target === 'OPEN') {
+      if (risk.status === 'OPEN') {
+        unchanged.push({
+          vulnerabilityId: candidate.vulnerabilityId,
+          packageUrl: candidate.packageUrl,
+          currentStatus: risk.status,
+        });
+        continue;
+      }
+      transitionKey = 'REOPEN';
+    } else {
+      transitionKey = mapped.target;
+    }
+
+    if (!risk.transitions.includes(transitionKey)) {
       blocked.push({
         vulnerabilityId: candidate.vulnerabilityId,
         packageUrl: candidate.packageUrl,
-        reason: `transition ${mapping.transitionKey} is not valid from current status ${risk.status} for this risk`,
+        reason: `transition ${transitionKey} is not valid from current status ${risk.status} for this risk`,
       });
       continue;
     }
 
-    const comment = candidate.vexContact ? `${mapping.comment} (VEX contact: ${candidate.vexContact})` : mapping.comment;
+    const comment = candidate.vexContact ? `${mapped.comment} (VEX contact: ${candidate.vexContact})` : mapped.comment;
 
     provisional.push({
       item: {
@@ -137,7 +166,7 @@ export async function assessImport(
         vulnerabilityId: candidate.vulnerabilityId,
         packageUrl: candidate.packageUrl,
         currentStatus: risk.status,
-        transitionKey: mapping.transitionKey,
+        transitionKey,
         comment,
       },
       vexReferenceDate: candidate.vexReferenceDate,
@@ -186,5 +215,5 @@ export async function assessImport(
     });
   });
 
-  return { importable, blocked, conflicts };
+  return { importable, blocked, conflicts, unchanged };
 }

@@ -145,19 +145,29 @@ A single `vulnerabilities[]` entry with multiple `affects[]` produces one matchi
 
 A VEX candidate matches a detected dependency risk on **exact equality of `(vulnerabilityId, packageUrl)`**, including the version embedded in the PURL. CycloneDX's `affects[].versions[]` range syntax is **not** interpreted in v1 — a VEX statement covering a version range must still name the exact PURL SonarQube detected. This is a known v1 limitation, not a design goal.
 
-### 3.3 Analysis state → SonarQube transition
+### 3.3 Analysis state → SonarQube status (adjustable mapping)
 
-| `analysis.state` | condition | `transitionKey` |
-|---|---|---|
-| `not_affected` | — | `SAFE` |
-| `false_positive` | — | `SAFE` |
-| `resolved` | — | `FIXED` |
-| `resolved_with_pedigree` | — | `FIXED` |
-| `exploitable` | `response[]` includes `will_not_fix` | `ACCEPT` |
-| `exploitable` | otherwise | `CONFIRM` |
-| `in_triage`, missing, or unrecognized | — | **blocked** — not actionable |
+The mapping is **adjustable per import** (wizard: *Status mapping* panel in the file-selection step; CLI: `--undecided skip|open` and repeatable `--map STATE=TARGET`, applied in that order). The table below is the **default**, identical to v0.1.0's fixed mapping.
 
-Comment sent with the transition: `analysis.detail` trimmed, if non-empty; otherwise a generated fallback `VEX import: state=<state>[, justification=<justification>]`. If the document's `metadata.authors`/`metadata.supplier` resolve to a non-empty contact string (built once per document — see `buildDocumentContact` in `parseVex.ts` / `build_document_contact` in `cli/vex-import.py`, name+email formatted as `Name <email>`, multiple authors/supplier contacts joined with `, `), it is appended to that comment as `" (VEX contact: <contact>)"`. This mapping table is duplicated in `cli/vex-import.py` (necessarily — two runtimes) and both copies are annotated `# KEEP IN SYNC WITH ...`; this table is the canonical reference for reviewing both.
+| mapping row (`VexStateKey`) | `analysis.state` | condition | default target |
+|---|---|---|---|
+| `not_affected` | `not_affected` | — | `SAFE` |
+| `false_positive` | `false_positive` | — | `SAFE` |
+| `resolved` | `resolved` | — | `FIXED` |
+| `resolved_with_pedigree` | `resolved_with_pedigree` | — | `FIXED` |
+| `exploitable_will_not_fix` | `exploitable` | `response[]` includes `will_not_fix` | `ACCEPT` |
+| `exploitable` | `exploitable` | otherwise | `CONFIRM` |
+| `in_triage` | `in_triage` | — | `SKIP` |
+| `missing` | absent (or no `analysis` object) | — | `SKIP` |
+| `unrecognized` | any other value | — | `SKIP` |
+
+Targets: `SAFE`, `FIXED`, `ACCEPT`, `CONFIRM`, `OPEN`, `SKIP`.
+
+- `SKIP` → **blocked**. Default-skipped rows keep v0.1.0's reasons (`VEX entry has no analysis.state` / `VEX analysis.state '<state>' is not actionable`); a decided row the user mapped to Skip reports `VEX analysis.state '<state>' is mapped to Skip`.
+- `OPEN` → if the detected risk is already `OPEN`: **unchanged** ("Already Open, no change needed" — no write, no changelog lookup); otherwise the `REOPEN` workflow transition (confirmed present in the SCA workflow of SonarQube Server 2026.5, alongside `ACCEPT`, `CONFIRM`, `FIXED`, `SAFE`). As for any target, if the risk's live `transitions[]` doesn't offer it, the entry is blocked (§3.4), and a reopen goes through the conflict guard (§3.5) like any other change.
+- The wizard's assessment and result steps, and the CLI's plan, print the rows that differ from the default (`Status mapping: default` otherwise).
+
+Comment sent with the transition: `analysis.detail` trimmed, if non-empty; otherwise a generated fallback `VEX import: state=<state>[, justification=<justification>]`. If the document's `metadata.authors`/`metadata.supplier` resolve to a non-empty contact string (built once per document — see `buildDocumentContact` in `parseVex.ts` / `build_document_contact` in `cli/vex-import.py`, name+email formatted as `Name <email>`, multiple authors/supplier contacts joined with `, `), it is appended to that comment as `" (VEX contact: <contact>)"`. The default mapping (`DEFAULT_MAPPING`) and the state classification (`stateKeyFor` / `state_key_for`) are duplicated in `cli/vex-import.py` (necessarily — two runtimes) and both copies are annotated `# KEEP IN SYNC WITH ...`; this table is the canonical reference for reviewing both.
 
 ### 3.4 Non-importable reasons
 

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BranchInfo, fetchLongLivedBranches } from '../../api/projectBranches';
+import { StatusMapping } from '../../vex/transitionMapping';
+import { StatusMappingPanel } from './StatusMappingPanel';
 
 const cardStyle: React.CSSProperties = {
   background: '#fff',
@@ -43,6 +45,8 @@ export interface StepSelectFileProps {
   vexFile: File | null;
   selectedBranch: BranchInfo | null;
   parseError: string | null;
+  mapping: StatusMapping;
+  onMappingChange: (mapping: StatusMapping) => void;
   canProceed: boolean;
   onFileSelected: (file: File, rawText: string) => void;
   onBranchSelected: (branch: BranchInfo) => void;
@@ -56,6 +60,8 @@ export function StepSelectFile({
   vexFile,
   selectedBranch,
   parseError,
+  mapping,
+  onMappingChange,
   canProceed,
   onFileSelected,
   onBranchSelected,
@@ -162,6 +168,10 @@ export function StepSelectFile({
         </div>
 
         {parseError && <p style={{ fontSize: '13px', color: '#dc2626' }}>Error: {parseError}</p>}
+      </div>
+
+      <div style={cardStyle}>
+        <StatusMappingPanel mapping={mapping} onMappingChange={onMappingChange} />
       </div>
 
       <button style={secondaryButtonStyle} onClick={onBack}>

@@ -6,6 +6,7 @@ import { fetchIssueReleaseChangelog } from '../api/scaChangelog';
 import { syncPluginSettings } from '../api/pluginSettings';
 import { assessImport, AssessmentResult, PlanItem } from '../vex/assessImport';
 import { parseVex, VexParseError, VexParseResult } from '../vex/parseVex';
+import { DEFAULT_MAPPING, describeMapping, StatusMapping } from '../vex/transitionMapping';
 import { Disclaimer } from './shared/Disclaimer';
 import { StepIntro } from './wizard/StepIntro';
 import { StepSelectFile } from './wizard/StepSelectFile';
@@ -47,6 +48,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
   const [vexFile, setVexFile] = useState<File | null>(null);
   const [parsedVex, setParsedVex] = useState<VexParseResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [mapping, setMapping] = useState<StatusMapping>({ ...DEFAULT_MAPPING });
 
   const [assessment, setAssessment] = useState<AssessmentResult | null>(null);
   const [assessmentLoading, setAssessmentLoading] = useState(false);
@@ -88,7 +90,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
     setConflictResolutions(new Map());
     try {
       const risks = await fetchDetectedRisks(component.key, selectedBranch.name);
-      const result = await assessImport(parsedVex, risks, fetchIssueReleaseChangelog);
+      const result = await assessImport(parsedVex, risks, fetchIssueReleaseChangelog, mapping);
       setAssessment(result);
     } catch (e) {
       setAssessmentError(e instanceof Error ? e.message : String(e));
@@ -174,6 +176,8 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
           vexFile={vexFile}
           selectedBranch={selectedBranch}
           parseError={parseError}
+          mapping={mapping}
+          onMappingChange={setMapping}
           canProceed={Boolean(vexFile && parsedVex && selectedBranch)}
           onFileSelected={handleFileSelected}
           onBranchSelected={setSelectedBranch}
@@ -187,6 +191,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
           loading={assessmentLoading}
           error={assessmentError}
           assessment={assessment}
+          mappingDescription={describeMapping(mapping)}
           onBack={() => setStep('selectFile')}
           onNext={goFromAssessment}
         />
@@ -215,7 +220,12 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
       )}
 
       {step === 'result' && applyResults && (
-        <StepResult finalImportable={finalImportable} results={applyResults} onStartOver={handleStartOver} />
+        <StepResult
+          finalImportable={finalImportable}
+          results={applyResults}
+          mappingDescription={describeMapping(mapping)}
+          onStartOver={handleStartOver}
+        />
       )}
     </div>
   );

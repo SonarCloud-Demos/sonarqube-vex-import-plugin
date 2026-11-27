@@ -31,11 +31,12 @@ export interface StepAssessmentProps {
   loading: boolean;
   error: string | null;
   assessment: AssessmentResult | null;
+  mappingDescription?: string;
   onBack: () => void;
   onNext: () => void;
 }
 
-export function StepAssessment({ loading, error, assessment, onBack, onNext }: Readonly<StepAssessmentProps>) {
+export function StepAssessment({ loading, error, assessment, mappingDescription = 'default', onBack, onNext }: Readonly<StepAssessmentProps>) {
   if (loading) {
     return <p style={{ padding: '16px', color: '#666' }}>Fetching detected dependency risks...</p>;
   }
@@ -56,9 +57,13 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
   }
 
   const { importable, blocked, conflicts } = assessment;
+  const unchanged = assessment.unchanged ?? [];
 
   return (
     <div>
+      <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }} data-testid="mapping-description">
+        Status mapping: {mappingDescription === 'default' ? 'default' : `custom (${mappingDescription})`}
+      </p>
       {conflicts.length > 0 && (
         <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}>
           <strong>Needs a decision ({conflicts.length})</strong> - these entries would otherwise be importable, but
@@ -126,6 +131,32 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
           </table>
         )}
       </div>
+
+      {unchanged.length > 0 && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>
+            Already Open, no change needed ({unchanged.length})
+          </h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={thBase}>CVE</th>
+                <th style={thBase}>Package</th>
+                <th style={thBase}>Current status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unchanged.map((item, idx) => (
+                <tr key={`${item.vulnerabilityId}-${item.packageUrl}-${idx}`}>
+                  <td style={tdStyle}>{item.vulnerabilityId}</td>
+                  <td style={tdStyle}>{item.packageUrl}</td>
+                  <td style={tdStyle}>{item.currentStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <button style={secondaryButtonStyle} onClick={onBack}>
         Back

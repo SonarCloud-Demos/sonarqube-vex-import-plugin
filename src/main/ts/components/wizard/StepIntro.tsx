@@ -155,6 +155,9 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
             </tr>
           </tbody>
         </table>
+        <p style={{ fontSize: '13px', color: '#444', margin: '12px 0 0' }}>
+          This is the default status mapping. You can adjust it, row by row, in the next step.
+        </p>
         <table style={{ ...tableStyle, marginTop: '12px' }}>
           <thead>
             <tr>
@@ -201,7 +204,7 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
                 <code>in_triage</code>, missing, or unrecognized
               </td>
               <td style={tdStyle}>-</td>
-              <td style={tdStyle}>not importable</td>
+              <td style={tdStyle}>not importable by default, or Open if you choose so</td>
             </tr>
           </tbody>
         </table>

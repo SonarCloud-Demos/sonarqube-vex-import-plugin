@@ -13,7 +13,7 @@
   <groupId>org.sonarsource.plugins.veximport</groupId>
   <artifactId>sonar-vex-import-plugin</artifactId>
   <packaging>sonar-plugin</packaging>
-  <version>0.1.0</version>
+  <version>0.2.0-SNAPSHOT</version>
 
   <name>SonarQube VEX Import Plugin</name>
   <description>Imports a VEX (CycloneDX) file to bulk-update SCA dependency-risk statuses</description>
