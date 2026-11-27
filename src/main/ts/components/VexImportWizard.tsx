@@ -163,7 +163,7 @@ export function VexImportWizard({ component, branchLike }: Readonly<VexImportWiz
   }
 
   return (
-    <div style={{ padding: '32px', fontFamily: 'sans-serif', maxWidth: '1400px' }}>
+    <div style={{ padding: '32px', fontFamily: 'sans-serif', width: '100%', boxSizing: 'border-box' }}>
       <Disclaimer />
       <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '24px', color: '#1a1a1a' }}>VEX Import</h1>
 

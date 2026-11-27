@@ -106,7 +106,7 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
         </p>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '1000px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
             <colgroup>
               <col style={{ width: '9%' }} />
               <col style={{ width: '11%' }} />
