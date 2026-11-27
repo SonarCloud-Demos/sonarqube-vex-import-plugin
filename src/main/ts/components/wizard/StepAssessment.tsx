@@ -1,6 +1,6 @@
 import React from 'react';
 import { AssessmentResult } from '../../vex/assessImport';
-import { thBase, tdStyle } from '../shared/tableUtils';
+import { thBase, tdStyle, formatDate } from '../shared/tableUtils';
 
 const cardStyle: React.CSSProperties = {
   background: '#fff',
@@ -31,11 +31,12 @@ export interface StepAssessmentProps {
   loading: boolean;
   error: string | null;
   assessment: AssessmentResult | null;
+  mappingDescription?: string;
   onBack: () => void;
   onNext: () => void;
 }
 
-export function StepAssessment({ loading, error, assessment, onBack, onNext }: Readonly<StepAssessmentProps>) {
+export function StepAssessment({ loading, error, assessment, mappingDescription = 'default', onBack, onNext }: Readonly<StepAssessmentProps>) {
   if (loading) {
     return <p style={{ padding: '16px', color: '#666' }}>Fetching detected dependency risks...</p>;
   }
@@ -56,14 +57,48 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
   }
 
   const { importable, blocked, conflicts } = assessment;
+  const unchanged = assessment.unchanged ?? [];
 
   return (
     <div>
+      <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }} data-testid="mapping-description">
+        Status mapping: {mappingDescription === 'default' ? 'default' : `custom (${mappingDescription})`}
+      </p>
       {conflicts.length > 0 && (
-        <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}>
+        <div
+          style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', color: '#92400e', fontSize: '13px', marginBottom: '16px' }}
+          data-testid="conflicts-card"
+        >
           <strong>Needs a decision ({conflicts.length})</strong> - these entries would otherwise be importable, but
           SonarQube's status was changed manually more recently than this VEX file's own reference date (or the file
           has no date to compare). You'll resolve each one, individually or in bulk, in the next step.
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', background: '#fff' }}>
+            <thead>
+              <tr>
+                <th style={thBase}>CVE</th>
+                <th style={thBase}>Package</th>
+                <th style={thBase}>Current status</th>
+                <th style={thBase}>Proposed status</th>
+                <th style={thBase}>Last changed in SonarQube</th>
+                <th style={thBase}>VEX date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {conflicts.map((c) => (
+                <tr key={c.item.issueReleaseKey}>
+                  <td style={tdStyle}>{c.item.vulnerabilityId}</td>
+                  <td style={tdStyle}>{c.item.packageUrl}</td>
+                  <td style={tdStyle}>{c.item.currentStatus}</td>
+                  <td style={tdStyle}>{c.item.transitionKey}</td>
+                  <td style={tdStyle}>
+                    {formatDate(c.sonarLastChangeDate)}
+                    {c.sonarLastChangeUser ? ` by ${c.sonarLastChangeUser}` : ''}
+                  </td>
+                  <td style={tdStyle}>{c.vexReferenceDate ? formatDate(c.vexReferenceDate) : '(none)'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -104,7 +139,7 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
           Not importable ({blocked.length})
         </h2>
         {blocked.length === 0 ? (
-          <p style={{ fontSize: '13px', color: '#666' }}>Every VEX entry could be matched and imported.</p>
+          <p style={{ fontSize: '13px', color: '#666' }}>No VEX entry was rejected.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -126,6 +161,32 @@ export function StepAssessment({ loading, error, assessment, onBack, onNext }: R
           </table>
         )}
       </div>
+
+      {unchanged.length > 0 && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>
+            Already Open or Confirmed, no change needed ({unchanged.length})
+          </h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={thBase}>CVE</th>
+                <th style={thBase}>Package</th>
+                <th style={thBase}>Current status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unchanged.map((item, idx) => (
+                <tr key={`${item.vulnerabilityId}-${item.packageUrl}-${idx}`}>
+                  <td style={tdStyle}>{item.vulnerabilityId}</td>
+                  <td style={tdStyle}>{item.packageUrl}</td>
+                  <td style={tdStyle}>{item.currentStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <button style={secondaryButtonStyle} onClick={onBack}>
         Back

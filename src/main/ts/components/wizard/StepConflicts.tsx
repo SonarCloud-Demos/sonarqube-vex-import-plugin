@@ -23,16 +23,19 @@ const buttonStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = { ...buttonStyle, background: '#4b9fd5', color: '#fff' };
 const secondaryButtonStyle: React.CSSProperties = { ...buttonStyle, background: '#eee', color: '#333' };
 
-const bulkButtonStyle: React.CSSProperties = {
+const bulkButtonStyle = (active: boolean): React.CSSProperties => ({
   padding: '5px 12px',
   fontSize: '12px',
   fontWeight: 600,
   borderRadius: '4px',
-  border: '1px solid #ccc',
-  background: '#fff',
+  border: `1px solid ${active ? '#236a97' : '#ccc'}`,
+  background: active ? '#236a97' : '#fff',
+  color: active ? '#fff' : '#333',
   cursor: 'pointer',
   marginRight: '8px',
-};
+});
+
+const radioLabelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' };
 
 // tdStyle alone doesn't constrain wrapping - with table-layout: fixed and the
 // colgroup widths above, this keeps long free text (comments, PURLs) wrapping
@@ -65,6 +68,9 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
     onResolutionsChange(next);
   }
 
+  const applyCount = conflicts.filter((c) => resolutionFor(resolutions, c.item.issueReleaseKey) === 'apply').length;
+  const keepCount = conflicts.length - applyCount;
+
   return (
     <div>
       <div style={cardStyle}>
@@ -78,39 +84,51 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
           <strong>keep SonarQube</strong>.
         </p>
 
-        <div style={{ marginBottom: '12px' }}>
-          <button style={bulkButtonStyle} onClick={() => setAll('keep')}>
+        <div style={{ marginBottom: '8px' }}>
+          <button
+            style={bulkButtonStyle(keepCount === conflicts.length)}
+            aria-pressed={keepCount === conflicts.length}
+            onClick={() => setAll('keep')}
+          >
             Keep SonarQube for all
           </button>
-          <button style={bulkButtonStyle} onClick={() => setAll('apply')}>
-            Apply VEX for all
+          <button
+            style={bulkButtonStyle(applyCount === conflicts.length)}
+            aria-pressed={applyCount === conflicts.length}
+            onClick={() => setAll('apply')}
+          >
+            Apply VEX to all
           </button>
         </div>
+        <p style={{ fontSize: '13px', color: '#444', marginBottom: '12px' }} data-testid="conflicts-summary" aria-live="polite">
+          <strong>{applyCount}</strong> will get the VEX status, <strong>{keepCount}</strong> will keep SonarQube's
+          status.
+        </p>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '1300px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
             <colgroup>
-              <col style={{ width: '90px' }} />
-              <col style={{ width: '170px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '140px' }} />
-              <col style={{ width: '260px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '110px' }} />
-              <col style={{ width: '260px' }} />
-              <col style={{ width: '160px' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '14%' }} />
             </colgroup>
             <thead>
               <tr>
                 <th style={thBase}>CVE</th>
+                <th style={thBase}>Decision</th>
                 <th style={thBase}>Package</th>
                 <th style={thBase}>SonarQube: current status</th>
+                <th style={thBase}>VEX: proposed status</th>
                 <th style={thBase}>SonarQube: last changed</th>
                 <th style={thBase}>SonarQube: comment</th>
-                <th style={thBase}>VEX: proposed status</th>
                 <th style={thBase}>VEX: reference date</th>
                 <th style={thBase}>VEX: comment</th>
-                <th style={thBase}>Resolution</th>
               </tr>
             </thead>
             <tbody>
@@ -120,22 +138,38 @@ export function StepConflicts({ conflicts, resolutions, onResolutionsChange, onB
                 return (
                   <tr key={key}>
                     <td style={wrapCellStyle}>{c.item.vulnerabilityId}</td>
+                    <td style={tdStyle}>
+                      <label style={radioLabelStyle}>
+                        <input
+                          type="radio"
+                          name={`resolution-${key}`}
+                          value="keep"
+                          checked={resolution === 'keep'}
+                          onChange={() => setOne(key, 'keep')}
+                        />{' '}
+                        Keep SonarQube
+                      </label>
+                      <label style={radioLabelStyle}>
+                        <input
+                          type="radio"
+                          name={`resolution-${key}`}
+                          value="apply"
+                          checked={resolution === 'apply'}
+                          onChange={() => setOne(key, 'apply')}
+                        />{' '}
+                        Apply VEX
+                      </label>
+                    </td>
                     <td style={wrapCellStyle}>{c.item.packageUrl}</td>
                     <td style={wrapCellStyle}>{c.item.currentStatus}</td>
+                    <td style={wrapCellStyle}>{c.item.transitionKey}</td>
                     <td style={wrapCellStyle}>
                       {formatDate(c.sonarLastChangeDate)}
                       {c.sonarLastChangeUser ? ` by ${c.sonarLastChangeUser}` : ''}
                     </td>
                     <td style={wrapCellStyle}>{c.sonarLastChangeComment ?? '-'}</td>
-                    <td style={wrapCellStyle}>{c.item.transitionKey}</td>
                     <td style={wrapCellStyle}>{formatDate(c.vexReferenceDate)}</td>
                     <td style={wrapCellStyle}>{c.item.comment}</td>
-                    <td style={tdStyle}>
-                      <select value={resolution} onChange={(e) => setOne(key, e.target.value as ConflictResolution)}>
-                        <option value="keep">Keep SonarQube</option>
-                        <option value="apply">Apply VEX</option>
-                      </select>
-                    </td>
                   </tr>
                 );
               })}

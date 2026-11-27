@@ -130,7 +130,7 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
               <td style={tdStyle}>
                 <code>analysis.state</code>, <code>analysis.response</code>
               </td>
-              <td style={tdStyle}>Status transition (Safe / Fixed / Accepted / Confirmed - see below)</td>
+              <td style={tdStyle}>Status transition (Safe / Fixed / Accepted / Confirmed / Open - see below)</td>
             </tr>
             <tr>
               <td style={tdStyle}>
@@ -155,6 +155,9 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
             </tr>
           </tbody>
         </table>
+        <p style={{ fontSize: '13px', color: '#444', margin: '12px 0 0' }}>
+          This is the default status mapping. You can adjust it, row by row, in the next step.
+        </p>
         <table style={{ ...tableStyle, marginTop: '12px' }}>
           <thead>
             <tr>
@@ -201,7 +204,11 @@ export function StepIntro({ onNext }: Readonly<StepIntroProps>) {
                 <code>in_triage</code>, missing, or unrecognized
               </td>
               <td style={tdStyle}>-</td>
-              <td style={tdStyle}>not importable</td>
+              <td style={tdStyle}>
+                not importable by default, or Open if you choose so: Open and Confirmed risks stay as they are,
+                Accepted, Safe or Fixed risks are reopened (after you confirm it on the conflicts step when the
+                risk has a status history in SonarQube)
+              </td>
             </tr>
           </tbody>
         </table>

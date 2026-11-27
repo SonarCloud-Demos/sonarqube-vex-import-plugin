@@ -2,6 +2,7 @@ import { DetectedRisk } from '../api/scaDetectedRisks';
 import { ChangelogEntry } from '../api/scaChangelog';
 import { assessImport, ChangelogFetcher } from './assessImport';
 import { VexParseResult } from './parseVex';
+import { DEFAULT_MAPPING, StatusMapping, withUndecided } from './transitionMapping';
 
 function risk(overrides: Partial<DetectedRisk> = {}): DetectedRisk {
   return {
@@ -271,6 +272,123 @@ describe('assessImport', () => {
       expect(result.conflicts.map((c) => c.item.issueReleaseKey)).toEqual(['k2']);
       expect(result.blocked).toHaveLength(1);
       expect(result.blocked[0].vulnerabilityId).toBe('CVE-3');
+    });
+  });
+
+  describe('adjustable status mapping', () => {
+    const undecidedOpen: StatusMapping = withUndecided({ ...DEFAULT_MAPPING }, 'OPEN');
+    const inTriage = (detail?: string) =>
+      vex({
+        candidates: [
+          { vulnerabilityId: 'CVE-2024-1111', packageUrl: 'pkg:npm/express@4.19.2', analysis: { state: 'in_triage', detail } },
+        ],
+      });
+
+    it('keeps v0.1.0 behavior by default: in_triage is blocked', async () => {
+      const result = await assessImport(inTriage(), [risk()], noHistory);
+      expect(result.importable).toEqual([]);
+      expect(result.unchanged).toEqual([]);
+      expect(result.blocked).toEqual([
+        {
+          vulnerabilityId: 'CVE-2024-1111',
+          packageUrl: 'pkg:npm/express@4.19.2',
+          reason: "VEX analysis.state 'in_triage' is not actionable",
+        },
+      ]);
+    });
+
+    it('reports an already-Open risk as unchanged when undecided maps to Open', async () => {
+      const result = await assessImport(inTriage(), [risk({ status: 'OPEN' })], noHistory, undecidedOpen);
+      expect(result.importable).toEqual([]);
+      expect(result.blocked).toEqual([]);
+      expect(result.unchanged).toEqual([
+        { vulnerabilityId: 'CVE-2024-1111', packageUrl: 'pkg:npm/express@4.19.2', currentStatus: 'OPEN' },
+      ]);
+    });
+
+    it.each(['ACCEPT', 'SAFE', 'FIXED'])('plans REOPEN for a %s risk when undecided maps to Open', async (status) => {
+      const result = await assessImport(
+        inTriage('Vendor still investigating'),
+        [risk({ status, transitions: ['REOPEN', 'SAFE'] })],
+        noHistory,
+        undecidedOpen
+      );
+      expect(result.importable).toEqual([
+        {
+          issueReleaseKey: 'key-1',
+          vulnerabilityId: 'CVE-2024-1111',
+          packageUrl: 'pkg:npm/express@4.19.2',
+          currentStatus: status,
+          transitionKey: 'REOPEN',
+          comment: 'Vendor still investigating',
+        },
+      ]);
+    });
+
+    it('blocks reopening when the server does not offer REOPEN for this risk', async () => {
+      const result = await assessImport(inTriage(), [risk({ status: 'FIXED', transitions: [] })], noHistory, undecidedOpen);
+      expect(result.importable).toEqual([]);
+      expect(result.blocked[0].reason).toBe('transition REOPEN is not valid from current status FIXED for this risk');
+    });
+
+    it.each([
+      ['older than', 'ACCEPT', '2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z'],
+      ['newer than', 'SAFE', '2026-12-01T00:00:00Z', '2026-11-20T00:00:00Z'],
+    ])(
+      'always asks for a decision before reopening a risk with history (VEX %s the SonarQube change)',
+      async (_label, status, vexReferenceDate, sonarChange) => {
+        const candidate = {
+          vulnerabilityId: 'CVE-2024-1111',
+          packageUrl: 'pkg:npm/express@4.19.2',
+          analysis: { state: 'in_triage' },
+          vexReferenceDate,
+        };
+        const fetchChangelog: ChangelogFetcher = () => Promise.resolve([statusChangeAt(sonarChange)]);
+        const result = await assessImport(
+          vex({ candidates: [candidate] }),
+          [risk({ status, transitions: ['REOPEN'] })],
+          fetchChangelog,
+          undecidedOpen
+        );
+        expect(result.importable).toEqual([]);
+        expect(result.conflicts).toHaveLength(1);
+        expect(result.conflicts[0].item.transitionKey).toBe('REOPEN');
+      }
+    );
+
+    it('still imports a reopen directly when the risk has no status-change history', async () => {
+      const result = await assessImport(inTriage(), [risk({ status: 'ACCEPT', transitions: ['REOPEN'] })], noHistory, undecidedOpen);
+      expect(result.conflicts).toEqual([]);
+      expect(result.importable[0].transitionKey).toBe('REOPEN');
+    });
+
+    it('leaves a Confirmed risk as is when undecided maps to Open (never demoted)', async () => {
+      const fetchChangelog = jest.fn(() => Promise.resolve([statusChangeAt('2026-11-20T00:00:00Z')]));
+      const result = await assessImport(
+        inTriage(),
+        [risk({ status: 'CONFIRM', transitions: ['REOPEN', 'SAFE'] })],
+        fetchChangelog,
+        undecidedOpen
+      );
+      expect(result.importable).toEqual([]);
+      expect(result.conflicts).toEqual([]);
+      expect(result.blocked).toEqual([]);
+      expect(result.unchanged).toEqual([
+        { vulnerabilityId: 'CVE-2024-1111', packageUrl: 'pkg:npm/express@4.19.2', currentStatus: 'CONFIRM' },
+      ]);
+      expect(fetchChangelog).not.toHaveBeenCalled();
+    });
+
+    it('does not fetch history for an already-Open risk (nothing to change)', async () => {
+      const fetchChangelog = jest.fn(() => Promise.resolve([] as ChangelogEntry[]));
+      await assessImport(inTriage(), [risk({ status: 'OPEN' })], fetchChangelog, undecidedOpen);
+      expect(fetchChangelog).not.toHaveBeenCalled();
+    });
+
+    it('applies a per-row override for a decided state', async () => {
+      const mapping: StatusMapping = { ...DEFAULT_MAPPING, not_affected: 'CONFIRM' };
+      const result = await assessImport(vex(), [risk()], noHistory, mapping);
+      expect(result.importable[0].transitionKey).toBe('CONFIRM');
     });
   });
 });

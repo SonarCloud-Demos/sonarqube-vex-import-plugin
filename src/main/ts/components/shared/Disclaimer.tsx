@@ -2,14 +2,20 @@ import React from 'react';
 
 export function Disclaimer() {
   return (
-    <div style={{
-      fontSize: '11px',
-      fontStyle: 'italic',
-      color: '#b91c1c',
-      marginBottom: '12px',
-      padding: '4px 0',
-    }}>
-      This is a personal project, not officially endorsed or supported by Sonar.
+    <div
+      style={{
+        fontSize: '12px',
+        color: '#92400e',
+        background: '#fffbeb',
+        border: '1px solid #fde68a',
+        borderRadius: '4px',
+        marginBottom: '12px',
+        padding: '6px 10px',
+      }}
+      data-testid="disclaimer"
+    >
+      <strong>Provided as is.</strong> This plugin is not part of Sonar's officially supported products, and Sonar
+      Support does not cover it.
     </div>
   );
 }

@@ -7,7 +7,7 @@
 **Minimum SonarQube:** 2025.1 (sonar-plugin-api 11.1.0.2693)
 **Last updated:** 2026-09-16
 
-> **Disclaimer:** Personal project — not officially endorsed or supported by Sonar or SonarSource. This plugin writes dependency-risk status changes to SonarQube using an internal, unstable API (see §3.2) — it is not built on a publicly supported contract and can break on a SonarQube upgrade without notice.
+> **Disclaimer:** Provided as is — not part of Sonar's officially supported products, and not covered by Sonar Support. This plugin writes dependency-risk status changes to SonarQube using an internal, unstable API (see §3.2) — it is not built on a publicly supported contract and can break on a SonarQube upgrade without notice.
 
 ---
 
@@ -60,7 +60,7 @@ VexImportWizard                       (root state container)
 ### Data flow
 
 ```
-step 2 (file + branch selected)
+step 2 (file + branch selected, status mapping chosen — default = §3.3)
   │
   ├── parseVex(rawJsonText)            — pure, network-free
   │     → { candidates: [{vulnerabilityId, packageUrl, analysis}], issues: [...] }
@@ -72,10 +72,12 @@ step 3 (entered)
   ├── fetchDetectedRisks(projectKey, branchKey)   ← GET /api/v2/sca/issues-releases
   │     → DetectedRisk[] { issueReleaseKey, vulnerabilityId, packageUrl, status, transitions[] }
   │
-  ├── assessImport(parsedVex, detectedRisks, fetchIssueReleaseChangelog)   — async
-  │     phase 1 (synchronous matching, unchanged):
+  ├── assessImport(parsedVex, detectedRisks, fetchIssueReleaseChangelog, mapping)   — async
+  │     phase 1 (synchronous matching):
   │       no matching (vulnerabilityId, packageUrl) in detected risks → blocked
-  │       mapAnalysisToTransition(analysis) blocked (state not actionable) → blocked
+  │       mapAnalysisToTransition(analysis, mapping) target is SKIP → blocked
+  │       target OPEN and risk already OPEN or CONFIRM → unchanged (no write, no changelog lookup)
+  │       target OPEN otherwise → transitionKey REOPEN; other targets → same-named transitionKey
   │       computed transitionKey not in that risk's transitions[] → blocked
   │       duplicate (vulnerabilityId, packageUrl) within the file → blocked (first wins)
   │       otherwise → provisional { PlanItem, vexReferenceDate }
@@ -100,9 +102,10 @@ step 4 (approve)
   │
   ├── finalImportable = assessment.importable ++ conflicts resolved as 'apply'
   │
-  ├── user may type an additional comment — appended to every item's comment,
-  │     in addition to (not instead of) the one derived from the VEX file:
-  │     `${itemComment} — ${userComment}`
+  ├── user may type an additional comment — added to every item's comment,
+  │     in addition to (not instead of) the one derived from the VEX file, on
+  │     the next line: `${itemComment}\n${userComment}` (rendered as <br/>)
+  │     (joinComments in vex/comments.ts / join_comments in the CLI)
   │
   ├── applyStatusChanges(changes)                 (changes built from finalImportable)
   │     bulk-first: one POST /api/v2/sca/issues-releases/bulk-change,
@@ -145,19 +148,29 @@ A single `vulnerabilities[]` entry with multiple `affects[]` produces one matchi
 
 A VEX candidate matches a detected dependency risk on **exact equality of `(vulnerabilityId, packageUrl)`**, including the version embedded in the PURL. CycloneDX's `affects[].versions[]` range syntax is **not** interpreted in v1 — a VEX statement covering a version range must still name the exact PURL SonarQube detected. This is a known v1 limitation, not a design goal.
 
-### 3.3 Analysis state → SonarQube transition
+### 3.3 Analysis state → SonarQube status (adjustable mapping)
 
-| `analysis.state` | condition | `transitionKey` |
-|---|---|---|
-| `not_affected` | — | `SAFE` |
-| `false_positive` | — | `SAFE` |
-| `resolved` | — | `FIXED` |
-| `resolved_with_pedigree` | — | `FIXED` |
-| `exploitable` | `response[]` includes `will_not_fix` | `ACCEPT` |
-| `exploitable` | otherwise | `CONFIRM` |
-| `in_triage`, missing, or unrecognized | — | **blocked** — not actionable |
+The mapping is **adjustable per import** (wizard: *Status mapping* panel in the file-selection step; CLI: `--undecided skip|open` and repeatable `--map STATE=TARGET`, applied in that order). The table below is the **default**, identical to v0.1.0's fixed mapping.
 
-Comment sent with the transition: `analysis.detail` trimmed, if non-empty; otherwise a generated fallback `VEX import: state=<state>[, justification=<justification>]`. If the document's `metadata.authors`/`metadata.supplier` resolve to a non-empty contact string (built once per document — see `buildDocumentContact` in `parseVex.ts` / `build_document_contact` in `cli/vex-import.py`, name+email formatted as `Name <email>`, multiple authors/supplier contacts joined with `, `), it is appended to that comment as `" (VEX contact: <contact>)"`. This mapping table is duplicated in `cli/vex-import.py` (necessarily — two runtimes) and both copies are annotated `# KEEP IN SYNC WITH ...`; this table is the canonical reference for reviewing both.
+| mapping row (`VexStateKey`) | `analysis.state` | condition | default target |
+|---|---|---|---|
+| `not_affected` | `not_affected` | — | `SAFE` |
+| `false_positive` | `false_positive` | — | `SAFE` |
+| `resolved` | `resolved` | — | `FIXED` |
+| `resolved_with_pedigree` | `resolved_with_pedigree` | — | `FIXED` |
+| `exploitable_will_not_fix` | `exploitable` | `response[]` includes `will_not_fix` | `ACCEPT` |
+| `exploitable` | `exploitable` | otherwise | `CONFIRM` |
+| `in_triage` | `in_triage` | — | `SKIP` |
+| `missing` | absent (or no `analysis` object) | — | `SKIP` |
+| `unrecognized` | any other value | — | `SKIP` |
+
+Targets: `SAFE`, `FIXED`, `ACCEPT`, `CONFIRM`, `OPEN`, `SKIP`.
+
+- `SKIP` → **blocked**. Default-skipped rows keep v0.1.0's reasons (`VEX entry has no analysis.state` / `VEX analysis.state '<state>' is not actionable`); a decided row the user mapped to Skip reports `VEX analysis '<row label>' is mapped to Skip` (row label from `STATE_LABELS`, e.g. `exploitable + will_not_fix`). A non-string `analysis.state` is printed as compact JSON (e.g. `["in_triage"]`) in both runtimes, and an empty list or object counts as unrecognized, not missing.
+- `OPEN` → if the detected risk is already `OPEN` or `CONFIRM`ed: **unchanged** ("Already Open or Confirmed, no change needed" — no write, no changelog lookup; Confirmed is kept because it is the stronger decision — "real, to be fixed" — and an undecided statement adds nothing to it); otherwise (`ACCEPT`, `SAFE`, `FIXED`) the `REOPEN` workflow transition (confirmed present in the SCA workflow of SonarQube Server 2026.5, alongside `ACCEPT`, `CONFIRM`, `FIXED`, `SAFE`). As for any target, if the risk's live `transitions[]` doesn't offer it, the entry is blocked (§3.4), and a reopen is **always** a conflict when the risk has any status-change history (§3.5), whatever the dates: an undecided statement carries no decision, and a VEX entry without its own date falls back to the document's export timestamp, which would otherwise make a fresh export look newer than any past triage. 
+- The wizard's assessment and result steps, and the CLI's plan, print the rows that differ from the default (`Status mapping: default` otherwise).
+
+Comment sent with the transition: `analysis.detail` trimmed, if non-empty; otherwise a generated fallback `VEX import: state=<state>[, justification=<justification>]`. If the document's `metadata.authors`/`metadata.supplier` resolve to a non-empty contact string (built once per document — see `buildDocumentContact` in `parseVex.ts` / `build_document_contact` in `cli/vex-import.py`, name+email formatted as `Name <email>`, multiple authors/supplier contacts joined with `, `), it is appended to that comment as `" (VEX contact: <contact>)"`. The default mapping (`DEFAULT_MAPPING`) and the state classification (`stateKeyFor` / `state_key_for`) are duplicated in `cli/vex-import.py` (necessarily — two runtimes) and both copies are annotated `# KEEP IN SYNC WITH ...`; this table is the canonical reference for reviewing both.
 
 ### 3.4 Non-importable reasons
 
@@ -233,15 +246,15 @@ POST requests include an `X-XSRF-TOKEN` header set from the `XSRF-TOKEN` cookie 
 
 Root state container. Props: `{ component: { key, name, qualifier? }, branchLike?: { name } }`. Renders a plain "not available" message if `component.qualifier` is set and isn't `TRK` (defense in depth — the page definition already restricts registration to `PROJECT`). Before rendering the wizard itself, calls `syncPluginSettings()` (`api/pluginSettings.ts`, `GET /api/settings/values?keys=veximport.enabled`) once on mount; renders nothing while that's pending (`pluginEnabled === null`, avoiding a flash of the wizard before the check resolves), and a "disabled by your administrator" notice instead of the wizard if it comes back `false`. Fails open (treats a fetch error the same as `true`) since a broken settings call shouldn't be indistinguishable from an admin actually disabling the feature. See §2's Java entry points for the setting itself.
 
-State: `step` (`WizardStep`, a named union — see §2), `selectedBranch`, `vexFile`/`parsedVex`/`parseError`, `assessment`/`assessmentLoading`/`assessmentError`, `conflictResolutions` (`Map<issueReleaseKey, 'keep'|'apply'>`), `userComment`, `applyLoading`/`applyError`/`applyResults`. `assessment` is now loaded via an explicit async pipeline (`goToAssessment`: `fetchDetectedRisks` then `assessImport(parsedVex, risks, fetchIssueReleaseChangelog)`) rather than a pure `useMemo`, since matching now requires network calls (the changelog fetch per candidate). `finalImportable` is derived via `useMemo` over `[assessment, conflictResolutions]` — `assessment.importable` concatenated with whichever conflicts are resolved as `'apply'` — and is the single value `StepApprove`/`StepResult` consume (they no longer see the full `AssessmentResult`).
+State: `step` (`WizardStep`, a named union — see §2), `selectedBranch`, `vexFile`/`parsedVex`/`parseError`, `mapping` (`StatusMapping`, initialized to a copy of `DEFAULT_MAPPING`, edited in `StepSelectFile`'s Status mapping panel, and reset to the default on Start over so a custom mapping never carries into the next import), `assessment`/`assessmentLoading`/`assessmentError`, `conflictResolutions` (`Map<issueReleaseKey, 'keep'|'apply'>`), `userComment`, `applyLoading`/`applyError`/`applyResults`. `assessment` is now loaded via an explicit async pipeline (`goToAssessment`: `fetchDetectedRisks` then `assessImport(parsedVex, risks, fetchIssueReleaseChangelog, mapping)`) rather than a pure `useMemo`, since matching now requires network calls (the changelog fetch per candidate). `finalImportable` is derived via `useMemo` over `[assessment, conflictResolutions]` — `assessment.importable` concatenated with whichever conflicts are resolved as `'apply'` — and is the single value `StepApprove`/`StepResult` consume (they no longer see the full `AssessmentResult`). `AssessmentResult` carries four lists — `importable`, `conflicts`, `blocked`, `unchanged` — all shown by `StepAssessment`; `describeMapping(mapping)` is passed to `StepAssessment` and `StepResult` for the "Status mapping: …" line.
 
 ### `StepIntro`, `StepSelectFile`, `StepAssessment`, `StepApprove`, `StepResult` (`components/wizard/`)
 
-One component per wizard step, described in §2's data-flow diagram. `StepSelectFile` fetches long-lived branches itself via `fetchLongLivedBranches` (`api/projectBranches.ts`, unchanged from the plugin's previous incarnation), pre-selecting `branchLike?.name` when present, falling back to the project's main branch. `StepApprove` owns the optional additional-comment textarea and the explicit confirmation checkbox that gates the Apply button; wizard navigation is locked (no Back) while the apply call is in flight, to avoid leaving a partial-apply state abandoned mid-way. `StepIntro` includes a static "Field mapping" table (CycloneDX field → where it ends up, plus the full `analysis.state`/`response` → transition table from §3.3) as an at-a-glance reference — it duplicates §3.1/§3.3's content by design, for a reader who won't open this spec.
+One component per wizard step, described in §2's data-flow diagram. `StepSelectFile` fetches long-lived branches itself via `fetchLongLivedBranches` (`api/projectBranches.ts`, unchanged from the plugin's previous incarnation), pre-selecting the branch the user is browsing in SonarQube — `branchLike?.name` when SonarQube passes it, otherwise the page URL's `branch=` parameter (SonarQube 2026.5 does not pass `branchLike` to project extension pages, but keeps `branch=` / `pullRequest=` in the URL); see `utils/requestedBranch.ts`. A branch already chosen earlier in the same wizard session is kept (e.g. when coming back from the assessment). When the browsed branch isn't long-lived, or a pull request is being browsed, the main branch is selected and a short notice says why. `StepApprove` owns the optional additional-comment textarea and the explicit confirmation checkbox that gates the Apply button; wizard navigation is locked (no Back) while the apply call is in flight, to avoid leaving a partial-apply state abandoned mid-way. `StepIntro` includes a static "Field mapping" table (CycloneDX field → where it ends up, plus the full `analysis.state`/`response` → transition table from §3.3) as an at-a-glance reference — it duplicates §3.1/§3.3's content by design, for a reader who won't open this spec.
 
 ### `StepConflicts` (`components/wizard/StepConflicts.tsx`)
 
-Rendered only when `assessment.conflicts.length > 0` (the wizard container decides this, not the step itself — both `StepAssessment`'s Next and `StepApprove`'s Back skip straight past it otherwise). Resolution state is a single `Map<issueReleaseKey, 'keep'|'apply'>` owned by `VexImportWizard` — there is no separate "bulk mode" flag. The two bulk buttons ("Keep SonarQube for all" / "Apply VEX for all") are just a convenience that replaces the whole map; a per-row `<select>` sets one entry; whichever action (bulk or per-row) happens last wins, since both write to the same map. A row with no entry in the map reads as `'keep'` via `resolutions.get(key) ?? 'keep'` — that fallback *is* the default, nothing needs to pre-populate the map when conflicts first appear. The Next button has no gating condition: leaving every row at the default "keep" is a valid, safe choice.
+Rendered only when `assessment.conflicts.length > 0` (the wizard container decides this, not the step itself — both `StepAssessment`'s Next and `StepApprove`'s Back skip straight past it otherwise). Resolution state is a single `Map<issueReleaseKey, 'keep'|'apply'>` owned by `VexImportWizard` — there is no separate "bulk mode" flag. The two bulk buttons ("Keep SonarQube for all" / "Apply VEX to all") are just a convenience that replaces the whole map, and the one matching the current state of every row is shown as pressed; a per-row radio pair in the **Decision** column (second column, right after the CVE, so it stays visible without horizontal scrolling) sets one entry; a live summary line counts how many rows will get the VEX status vs keep SonarQube's; whichever action (bulk or per-row) happens last wins, since both write to the same map. A row with no entry in the map reads as `'keep'` via `resolutions.get(key) ?? 'keep'` — that fallback *is* the default, nothing needs to pre-populate the map when conflicts first appear. The Next button has no gating condition: leaving every row at the default "keep" is a valid, safe choice.
 
 ### `Disclaimer`, `tableUtils` (`components/shared/`)
 

@@ -72,8 +72,8 @@ export function StepApprove({
           Additional comment (optional)
         </label>
         <p style={{ fontSize: '12px', color: '#666', margin: '0 0 6px' }}>
-          Appended to every imported item's comment, in addition to the justification imported from the VEX
-          file.
+          Added to every imported item's comment, on the next line after the justification imported from the
+          VEX file.
         </p>
         <textarea
           id="vex-approve-comment"

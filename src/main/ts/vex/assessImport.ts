@@ -1,8 +1,8 @@
 import { DetectedRisk } from '../api/scaDetectedRisks';
 import { ChangelogEntry, findLastStatusChange } from '../api/scaChangelog';
 import { concurrentMap } from '../utils/concurrentMap';
-import { mapAnalysisToTransition, TransitionKey } from './transitionMapping';
-import { VexParseResult } from './parseVex';
+import { DEFAULT_MAPPING, mapAnalysisToTransition, StatusMapping, TransitionKey } from './transitionMapping';
+import { VexCandidate, VexParseResult } from './parseVex';
 
 export interface PlanItem {
   issueReleaseKey: string;
@@ -27,17 +27,37 @@ export interface ConflictItem {
   sonarLastChangeComment?: string;
 }
 
+/**
+ * A VEX entry mapped to Open whose risk is already Open or Confirmed: nothing
+ * to change (Confirmed is kept as the stronger decision, never demoted).
+ */
+export interface UnchangedItem {
+  vulnerabilityId: string;
+  packageUrl: string;
+  currentStatus: string;
+}
+
 export interface AssessmentResult {
   importable: PlanItem[];
   blocked: BlockedItem[];
   conflicts: ConflictItem[];
+  unchanged: UnchangedItem[];
 }
+
+// Statuses that already mean "to be dealt with": an Open target leaves them as is.
+// KEEP IN SYNC WITH cli/vex-import.py (STATUSES_ALREADY_OPEN)
+const STATUSES_ALREADY_OPEN = new Set(['OPEN', 'CONFIRM']);
 
 export type ChangelogFetcher = (issueReleaseKey: string) => Promise<ChangelogEntry[]>;
 
 interface Provisional {
   item: PlanItem;
   vexReferenceDate?: string;
+  // A reopen never silently overrides a decision made in SonarQube: when the
+  // risk has any status-change history, it always needs a decision, whatever
+  // the dates. (A VEX entry without its own date falls back to the document's
+  // export timestamp, which is newer than any past triage for a fresh export.)
+  alwaysConflictOnHistory: boolean;
 }
 
 function matchKey(vulnerabilityId: string, packageUrl: string): string {
@@ -50,6 +70,53 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+type MatchOutcome =
+  | { kind: 'blocked'; reason: string }
+  | { kind: 'unchanged'; item: UnchangedItem }
+  | { kind: 'provisional'; provisional: Provisional };
+
+/**
+ * Decides what to do with one VEX candidate matched to its detected risk:
+ * blocked (Skip target, or transition not offered), unchanged (Open target on
+ * a risk that is already Open or Confirmed), or provisional (pending the
+ * changelog-based conflict check of phase 2).
+ */
+function classifyMatch(candidate: VexCandidate, risk: DetectedRisk, mapping: StatusMapping): MatchOutcome {
+  const mapped = mapAnalysisToTransition(candidate.analysis, mapping);
+  if (mapped.blocked) {
+    return { kind: 'blocked', reason: mapped.reason };
+  }
+
+  if (mapped.target === 'OPEN' && STATUSES_ALREADY_OPEN.has(risk.status)) {
+    return {
+      kind: 'unchanged',
+      item: { vulnerabilityId: candidate.vulnerabilityId, packageUrl: candidate.packageUrl, currentStatus: risk.status },
+    };
+  }
+
+  const transitionKey: TransitionKey = mapped.target === 'OPEN' ? 'REOPEN' : mapped.target;
+  if (!risk.transitions.includes(transitionKey)) {
+    return { kind: 'blocked', reason: `transition ${transitionKey} is not valid from current status ${risk.status} for this risk` };
+  }
+
+  const comment = candidate.vexContact ? `${mapped.comment} (VEX contact: ${candidate.vexContact})` : mapped.comment;
+  return {
+    kind: 'provisional',
+    provisional: {
+      item: {
+        issueReleaseKey: risk.issueReleaseKey,
+        vulnerabilityId: candidate.vulnerabilityId,
+        packageUrl: candidate.packageUrl,
+        currentStatus: risk.status,
+        transitionKey,
+        comment,
+      },
+      vexReferenceDate: candidate.vexReferenceDate,
+      alwaysConflictOnHistory: transitionKey === 'REOPEN',
+    },
+  };
+}
+
 /**
  * Matches parsed VEX candidates against SonarQube's currently detected
  * dependency risks, producing the plan of importable status changes, the
@@ -59,6 +126,11 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
  * recently than the VEX's own reference date (or has history and the VEX
  * carries no date to compare against).
  *
+ * `mapping` is the user-adjustable state → status mapping (defaults to
+ * DEFAULT_MAPPING, i.e. v0.1.0 behavior). A row mapped to Open becomes an
+ * `unchanged` entry when the risk is already Open or Confirmed, otherwise a
+ * REOPEN transition that always needs a decision if the risk has history.
+ *
  * `fetchChangelog` is required and explicit (no default pointing at the real
  * network fetch) so this stays a pure, network-free function to unit test —
  * callers pass the real src/main/ts/api/scaChangelog.ts fetch in production.
@@ -66,8 +138,10 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
 export async function assessImport(
   vex: VexParseResult,
   detected: DetectedRisk[],
-  fetchChangelog: ChangelogFetcher
+  fetchChangelog: ChangelogFetcher,
+  mapping: StatusMapping = DEFAULT_MAPPING
 ): Promise<AssessmentResult> {
+  const unchanged: UnchangedItem[] = [];
   const blocked: BlockedItem[] = vex.issues.map((issue) => ({
     vulnerabilityId: issue.vulnerabilityId,
     packageUrl: issue.packageUrl,
@@ -110,38 +184,14 @@ export async function assessImport(
       continue;
     }
 
-    const mapping = mapAnalysisToTransition(candidate.analysis);
-    if (mapping.blocked) {
-      blocked.push({
-        vulnerabilityId: candidate.vulnerabilityId,
-        packageUrl: candidate.packageUrl,
-        reason: mapping.reason,
-      });
-      continue;
+    const outcome = classifyMatch(candidate, risk, mapping);
+    if (outcome.kind === 'blocked') {
+      blocked.push({ vulnerabilityId: candidate.vulnerabilityId, packageUrl: candidate.packageUrl, reason: outcome.reason });
+    } else if (outcome.kind === 'unchanged') {
+      unchanged.push(outcome.item);
+    } else {
+      provisional.push(outcome.provisional);
     }
-
-    if (!risk.transitions.includes(mapping.transitionKey)) {
-      blocked.push({
-        vulnerabilityId: candidate.vulnerabilityId,
-        packageUrl: candidate.packageUrl,
-        reason: `transition ${mapping.transitionKey} is not valid from current status ${risk.status} for this risk`,
-      });
-      continue;
-    }
-
-    const comment = candidate.vexContact ? `${mapping.comment} (VEX contact: ${candidate.vexContact})` : mapping.comment;
-
-    provisional.push({
-      item: {
-        issueReleaseKey: risk.issueReleaseKey,
-        vulnerabilityId: candidate.vulnerabilityId,
-        packageUrl: candidate.packageUrl,
-        currentStatus: risk.status,
-        transitionKey: mapping.transitionKey,
-        comment,
-      },
-      vexReferenceDate: candidate.vexReferenceDate,
-    });
   }
 
   // Phase 2 — for each provisional item, check SonarQube's own change history
@@ -170,7 +220,8 @@ export async function assessImport(
 
     const sonarDate = parseDateSafe(lastStatusChange.createdAt);
     const vexDate = parseDateSafe(p.vexReferenceDate);
-    const vexIsSameOrNewer = vexDate && sonarDate && vexDate.getTime() >= sonarDate.getTime();
+    const vexIsSameOrNewer =
+      !p.alwaysConflictOnHistory && vexDate && sonarDate && vexDate.getTime() >= sonarDate.getTime();
 
     if (vexIsSameOrNewer) {
       importable.push(p.item);
@@ -186,5 +237,5 @@ export async function assessImport(
     });
   });
 
-  return { importable, blocked, conflicts };
+  return { importable, blocked, conflicts, unchanged };
 }

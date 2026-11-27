@@ -57,6 +57,9 @@ jobs:
           YARN_NPM_REGISTRY_SERVER: https://registry.npmjs.org
         run: node .yarn/releases/yarn-3.4.1.cjs install --immutable
 
+      - name: Run CLI unit tests
+        run: python3 -m unittest discover -s cli -p 'test_*.py'
+
       - name: Build plugin
         run: mvn -B package -DskipTests
 
