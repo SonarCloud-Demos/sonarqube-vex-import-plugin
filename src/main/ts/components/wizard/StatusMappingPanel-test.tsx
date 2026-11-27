@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { DEFAULT_MAPPING, StatusMapping } from '../../vex/transitionMapping';
 import { StatusMappingPanel } from './StatusMappingPanel';
 
-function Harness({ onChange }: { onChange: (mapping: StatusMapping) => void }) {
+function Harness({ onChange }: Readonly<{ onChange: (mapping: StatusMapping) => void }>) {
   const [mapping, setMapping] = useState<StatusMapping>({ ...DEFAULT_MAPPING });
   return (
     <StatusMappingPanel

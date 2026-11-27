@@ -18,7 +18,7 @@ function conflict(key: string, cve: string): ConflictItem {
   };
 }
 
-function Harness({ onChange }: { onChange?: (m: Map<string, ConflictResolution>) => void }) {
+function Harness({ onChange }: Readonly<{ onChange?: (m: Map<string, ConflictResolution>) => void }>) {
   const [resolutions, setResolutions] = useState<Map<string, ConflictResolution>>(new Map());
   return (
     <StepConflicts

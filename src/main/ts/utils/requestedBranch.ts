@@ -36,6 +36,7 @@ export interface BranchChoice {
  */
 export function pickBranch(branches: BranchInfo[], requested: RequestedBranch, current: BranchInfo | null): BranchChoice {
   const main = branches.find((b) => b.isMain) ?? branches[0];
+  const fallback = main ? `the main branch (${main.name})` : 'a long-lived branch';
 
   const kept = current && branches.find((b) => b.name === current.name);
   if (kept) {
@@ -45,7 +46,7 @@ export function pickBranch(branches: BranchInfo[], requested: RequestedBranch, c
   if (requested.pullRequest) {
     return {
       branch: main,
-      notice: `You're browsing pull request ${requested.pullRequest}. VEX import applies to long-lived branches only, so ${main ? `the main branch (${main.name})` : 'a long-lived branch'} is selected instead.`,
+      notice: `You're browsing pull request ${requested.pullRequest}. VEX import applies to long-lived branches only, so ${fallback} is selected instead.`,
     };
   }
 
@@ -56,7 +57,7 @@ export function pickBranch(branches: BranchInfo[], requested: RequestedBranch, c
     }
     return {
       branch: main,
-      notice: `Branch "${requested.branch}" isn't a long-lived branch. VEX import applies to long-lived branches only, so ${main ? `the main branch (${main.name})` : 'a long-lived branch'} is selected instead.`,
+      notice: `Branch "${requested.branch}" isn't a long-lived branch. VEX import applies to long-lived branches only, so ${fallback} is selected instead.`,
     };
   }
 

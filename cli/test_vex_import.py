@@ -102,7 +102,13 @@ class MapAnalysisTest(unittest.TestCase):
 
     def test_printable_reason_for_non_string_state(self):
         self.assertEqual(vex_import.map_analysis_to_transition({'state': {'x': 1}})[1],
-                         'VEX analysis.state \'{"x": 1}\' is not actionable')
+                         'VEX analysis.state \'{"x":1}\' is not actionable')
+
+    def test_empty_list_or_dict_state_is_unrecognized_like_the_wizard(self):
+        for state in ([], {}):
+            with self.subTest(state=state):
+                self.assertEqual(vex_import.state_key_for({'state': state}), 'unrecognized')
+        self.assertEqual(vex_import.state_key_for({'state': ''}), 'missing')
 
     def test_exploitable_will_not_fix_row_is_named_when_skipped(self):
         mapping = vex_import.build_mapping(overrides=['exploitable_will_not_fix=skip'])

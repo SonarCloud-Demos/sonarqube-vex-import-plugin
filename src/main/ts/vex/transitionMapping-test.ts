@@ -50,6 +50,17 @@ describe('mapAnalysisToTransition', () => {
     });
   });
 
+  it('prints a non-string state as compact JSON, like the CLI', () => {
+    expect(mapAnalysisToTransition({ state: { x: 1 } as unknown as string })).toMatchObject({
+      reason: `VEX analysis.state '{"x":1}' is not actionable`,
+    });
+  });
+
+  it('counts an empty list state as unrecognized and an empty string as missing, like the CLI', () => {
+    expect(mapAnalysisToTransition({ state: [] as unknown as string })).toMatchObject({ stateKey: 'unrecognized' });
+    expect(mapAnalysisToTransition({ state: '' })).toMatchObject({ stateKey: 'missing' });
+  });
+
   it('names the exploitable + will_not_fix row when it is mapped to Skip', () => {
     const mapping: StatusMapping = { ...DEFAULT_MAPPING, exploitable_will_not_fix: 'SKIP' };
     expect(mapAnalysisToTransition({ state: 'exploitable', response: ['will_not_fix'] }, mapping)).toMatchObject({

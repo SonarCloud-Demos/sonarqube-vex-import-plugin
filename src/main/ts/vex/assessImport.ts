@@ -2,7 +2,7 @@ import { DetectedRisk } from '../api/scaDetectedRisks';
 import { ChangelogEntry, findLastStatusChange } from '../api/scaChangelog';
 import { concurrentMap } from '../utils/concurrentMap';
 import { DEFAULT_MAPPING, mapAnalysisToTransition, StatusMapping, TransitionKey } from './transitionMapping';
-import { VexParseResult } from './parseVex';
+import { VexCandidate, VexParseResult } from './parseVex';
 
 export interface PlanItem {
   issueReleaseKey: string;
@@ -68,6 +68,53 @@ function parseDateSafe(iso: string | undefined): Date | undefined {
   if (!iso) return undefined;
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+type MatchOutcome =
+  | { kind: 'blocked'; reason: string }
+  | { kind: 'unchanged'; item: UnchangedItem }
+  | { kind: 'provisional'; provisional: Provisional };
+
+/**
+ * Decides what to do with one VEX candidate matched to its detected risk:
+ * blocked (Skip target, or transition not offered), unchanged (Open target on
+ * a risk that is already Open or Confirmed), or provisional (pending the
+ * changelog-based conflict check of phase 2).
+ */
+function classifyMatch(candidate: VexCandidate, risk: DetectedRisk, mapping: StatusMapping): MatchOutcome {
+  const mapped = mapAnalysisToTransition(candidate.analysis, mapping);
+  if (mapped.blocked) {
+    return { kind: 'blocked', reason: mapped.reason };
+  }
+
+  if (mapped.target === 'OPEN' && STATUSES_ALREADY_OPEN.has(risk.status)) {
+    return {
+      kind: 'unchanged',
+      item: { vulnerabilityId: candidate.vulnerabilityId, packageUrl: candidate.packageUrl, currentStatus: risk.status },
+    };
+  }
+
+  const transitionKey: TransitionKey = mapped.target === 'OPEN' ? 'REOPEN' : mapped.target;
+  if (!risk.transitions.includes(transitionKey)) {
+    return { kind: 'blocked', reason: `transition ${transitionKey} is not valid from current status ${risk.status} for this risk` };
+  }
+
+  const comment = candidate.vexContact ? `${mapped.comment} (VEX contact: ${candidate.vexContact})` : mapped.comment;
+  return {
+    kind: 'provisional',
+    provisional: {
+      item: {
+        issueReleaseKey: risk.issueReleaseKey,
+        vulnerabilityId: candidate.vulnerabilityId,
+        packageUrl: candidate.packageUrl,
+        currentStatus: risk.status,
+        transitionKey,
+        comment,
+      },
+      vexReferenceDate: candidate.vexReferenceDate,
+      alwaysConflictOnHistory: transitionKey === 'REOPEN',
+    },
+  };
 }
 
 /**
@@ -137,54 +184,14 @@ export async function assessImport(
       continue;
     }
 
-    const mapped = mapAnalysisToTransition(candidate.analysis, mapping);
-    if (mapped.blocked) {
-      blocked.push({
-        vulnerabilityId: candidate.vulnerabilityId,
-        packageUrl: candidate.packageUrl,
-        reason: mapped.reason,
-      });
-      continue;
-    }
-
-    let transitionKey: TransitionKey;
-    if (mapped.target === 'OPEN') {
-      if (STATUSES_ALREADY_OPEN.has(risk.status)) {
-        unchanged.push({
-          vulnerabilityId: candidate.vulnerabilityId,
-          packageUrl: candidate.packageUrl,
-          currentStatus: risk.status,
-        });
-        continue;
-      }
-      transitionKey = 'REOPEN';
+    const outcome = classifyMatch(candidate, risk, mapping);
+    if (outcome.kind === 'blocked') {
+      blocked.push({ vulnerabilityId: candidate.vulnerabilityId, packageUrl: candidate.packageUrl, reason: outcome.reason });
+    } else if (outcome.kind === 'unchanged') {
+      unchanged.push(outcome.item);
     } else {
-      transitionKey = mapped.target;
+      provisional.push(outcome.provisional);
     }
-
-    if (!risk.transitions.includes(transitionKey)) {
-      blocked.push({
-        vulnerabilityId: candidate.vulnerabilityId,
-        packageUrl: candidate.packageUrl,
-        reason: `transition ${transitionKey} is not valid from current status ${risk.status} for this risk`,
-      });
-      continue;
-    }
-
-    const comment = candidate.vexContact ? `${mapped.comment} (VEX contact: ${candidate.vexContact})` : mapped.comment;
-
-    provisional.push({
-      item: {
-        issueReleaseKey: risk.issueReleaseKey,
-        vulnerabilityId: candidate.vulnerabilityId,
-        packageUrl: candidate.packageUrl,
-        currentStatus: risk.status,
-        transitionKey,
-        comment,
-      },
-      vexReferenceDate: candidate.vexReferenceDate,
-      alwaysConflictOnHistory: transitionKey === 'REOPEN',
-    });
   }
 
   // Phase 2 — for each provisional item, check SonarQube's own change history

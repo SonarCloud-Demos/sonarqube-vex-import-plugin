@@ -25,8 +25,9 @@ listings on a shared machine).
 
 --conflict-resolution controls what happens when a VEX entry would change a
 risk whose status SonarQube shows was already changed manually more recently
-than the VEX's own reference date (or the VEX carries no date to compare):
-'ask' (default) prints both sides and prompts per conflict; 'keep' leaves
+than the VEX's own reference date (or the VEX carries no date to compare),
+and any REOPEN (an Open target) on a risk with status-change history, whatever
+the dates: 'ask' (default) prints both sides and prompts per conflict; 'keep' leaves
 every conflicting risk as-is; 'apply' applies the VEX's status to all of
 them, no prompting — for CI/scripted use. Never prompts during --dry-run.
 
@@ -231,13 +232,15 @@ def _as_analysis(analysis):
 
 def _printable_state(state):
     """KEEP IN SYNC WITH src/main/ts/vex/transitionMapping.ts (printableState)"""
-    return state if isinstance(state, str) else json.dumps(state)
+    return state if isinstance(state, str) else json.dumps(state, separators=(',', ':'))
 
 
 def state_key_for(analysis):
     analysis = _as_analysis(analysis)
     state = analysis.get('state')
-    if not state:
+    # Same notion of "missing" as the wizard's `!state`: an empty list or object
+    # is truthy in JS, so it counts as unrecognized there, and here too.
+    if not state and not isinstance(state, (list, dict)):
         return 'missing'
     if not isinstance(state, str) or state not in _KNOWN_STATES:
         return 'unrecognized'
@@ -350,6 +353,75 @@ def parse_date_safe(iso):
 # --- Matching against SonarQube's detected risks ------------------------------
 # KEEP IN SYNC WITH src/main/ts/vex/assessImport.ts
 
+def _blocked(vulnerability_id, package_url, reason):
+    return {'vulnerability_id': vulnerability_id, 'package_url': package_url, 'reason': reason}
+
+
+def classify_match(candidate, risk, mapping):
+    """Decides what to do with one VEX candidate matched to its detected risk.
+    Returns ('blocked', reason), ('unchanged', item) for an Open target on a
+    risk already Open or Confirmed, or ('provisional', p) pending the
+    changelog-based conflict check.
+    KEEP IN SYNC WITH src/main/ts/vex/assessImport.ts (classifyMatch)"""
+    is_blocked, target_or_reason, comment = map_analysis_to_transition(candidate.get('analysis'), mapping)
+    if is_blocked:
+        return 'blocked', target_or_reason
+
+    if target_or_reason == 'OPEN' and risk['status'] in STATUSES_ALREADY_OPEN:
+        return 'unchanged', {
+            'vulnerability_id': candidate['vulnerability_id'],
+            'package_url': candidate['package_url'],
+            'current_status': risk['status'],
+        }
+
+    transition_key = 'REOPEN' if target_or_reason == 'OPEN' else target_or_reason
+    if transition_key not in risk['transitions']:
+        return 'blocked', f"transition {transition_key} is not valid from current status {risk['status']} for this risk"
+
+    vex_contact = candidate.get('vex_contact')
+    if vex_contact:
+        comment = f'{comment} (VEX contact: {vex_contact})'
+
+    return 'provisional', {
+        'item': {
+            'issue_release_key': risk['issue_release_key'],
+            'vulnerability_id': candidate['vulnerability_id'],
+            'package_url': candidate['package_url'],
+            'current_status': risk['status'],
+            'transition_key': transition_key,
+            'comment': comment,
+        },
+        'vex_reference_date': candidate.get('vex_reference_date'),
+        # A reopen never silently overrides a decision made in SonarQube:
+        # with any status-change history it always needs a decision.
+        'always_conflict_on_history': transition_key == 'REOPEN',
+    }
+
+
+def _conflict_or_importable(p, changelog):
+    """Returns ('importable', item) or ('conflict', conflict) for one
+    provisional item, given its changelog."""
+    item = p['item']
+    last_status_change = find_last_status_change(changelog)
+    if last_status_change is None:
+        return 'importable', item
+
+    sonar_date = parse_date_safe(last_status_change['created_at'])
+    vex_date = parse_date_safe(p['vex_reference_date'])
+    vex_is_same_or_newer = (not p['always_conflict_on_history'] and vex_date is not None
+                            and sonar_date is not None and vex_date >= sonar_date)
+    if vex_is_same_or_newer:
+        return 'importable', item
+
+    return 'conflict', {
+        'item': item,
+        'vex_reference_date': p['vex_reference_date'],
+        'sonar_last_change_date': last_status_change['created_at'],
+        'sonar_last_change_user': last_status_change['user_login'] or last_status_change['user_name'],
+        'sonar_last_change_comment': last_status_change['comment'],
+    }
+
+
 def assess_import(candidates, issues, detected_risks, fetch_changelog, mapping=None):
     """detected_risks: list of dicts with issue_release_key, vulnerability_id,
     package_url, status, transitions. fetch_changelog: callable
@@ -358,126 +430,58 @@ def assess_import(candidates, issues, detected_risks, fetch_changelog, mapping=N
     Returns (importable, blocked, conflicts, unchanged)."""
     blocked = [dict(i) for i in issues]
     unchanged = []
+    detected_by_key = {
+        (risk['vulnerability_id'], risk['package_url']): risk
+        for risk in detected_risks
+        if risk.get('vulnerability_id') and risk.get('package_url')
+    }
 
-    detected_by_key = {}
-    for risk in detected_risks:
-        if risk.get('vulnerability_id') and risk.get('package_url'):
-            detected_by_key[(risk['vulnerability_id'], risk['package_url'])] = risk
-
-    # Phase 1: synchronous matching, identical to before except a would-be
-    # importable item becomes "provisional" pending the changelog check below.
+    # Phase 1: synchronous matching; a would-be importable item becomes
+    # "provisional" pending the changelog check below.
     provisional = []
     seen = set()
 
     for candidate in candidates:
         key = (candidate['vulnerability_id'], candidate['package_url'])
-
         if key in seen:
-            blocked.append({
-                'vulnerability_id': candidate['vulnerability_id'],
-                'package_url': candidate['package_url'],
-                'reason': 'duplicate VEX entry for this CVE/package — the first occurrence was used',
-            })
+            blocked.append(_blocked(*key, 'duplicate VEX entry for this CVE/package — the first occurrence was used'))
             continue
         seen.add(key)
 
         risk = detected_by_key.get(key)
         if not risk:
-            blocked.append({
-                'vulnerability_id': candidate['vulnerability_id'],
-                'package_url': candidate['package_url'],
-                'reason': 'SonarQube did not detect this dependency on this branch',
-            })
+            blocked.append(_blocked(*key, 'SonarQube did not detect this dependency on this branch'))
             continue
 
-        is_blocked, target_or_reason, comment = map_analysis_to_transition(candidate.get('analysis'), mapping)
-        if is_blocked:
-            blocked.append({
-                'vulnerability_id': candidate['vulnerability_id'],
-                'package_url': candidate['package_url'],
-                'reason': target_or_reason,
-            })
-            continue
-
-        if target_or_reason == 'OPEN':
-            if risk['status'] in STATUSES_ALREADY_OPEN:
-                unchanged.append({
-                    'vulnerability_id': candidate['vulnerability_id'],
-                    'package_url': candidate['package_url'],
-                    'current_status': risk['status'],
-                })
-                continue
-            transition_key = 'REOPEN'
+        kind, value = classify_match(candidate, risk, mapping)
+        if kind == 'blocked':
+            blocked.append(_blocked(*key, value))
+        elif kind == 'unchanged':
+            unchanged.append(value)
         else:
-            transition_key = target_or_reason
-        if transition_key not in risk['transitions']:
-            blocked.append({
-                'vulnerability_id': candidate['vulnerability_id'],
-                'package_url': candidate['package_url'],
-                'reason': f"transition {transition_key} is not valid from current status {risk['status']} for this risk",
-            })
-            continue
+            provisional.append(value)
 
-        vex_contact = candidate.get('vex_contact')
-        if vex_contact:
-            comment = f'{comment} (VEX contact: {vex_contact})'
+    importable, conflicts = _check_history(provisional, fetch_changelog, blocked)
+    return importable, blocked, conflicts, unchanged
 
-        provisional.append({
-            'item': {
-                'issue_release_key': risk['issue_release_key'],
-                'vulnerability_id': candidate['vulnerability_id'],
-                'package_url': candidate['package_url'],
-                'current_status': risk['status'],
-                'transition_key': transition_key,
-                'comment': comment,
-            },
-            'vex_reference_date': candidate.get('vex_reference_date'),
-            # A reopen never silently overrides a decision made in SonarQube:
-            # with any status-change history it always needs a decision.
-            # KEEP IN SYNC WITH src/main/ts/vex/assessImport.ts
-            'always_conflict_on_history': transition_key == 'REOPEN',
-        })
 
-    # Phase 2: sequential (stdlib-only, matches this script's existing
-    # fully-sequential apply loop) changelog check per provisional item.
+def _check_history(provisional, fetch_changelog, blocked):
+    """Phase 2: sequential (stdlib-only, matches this script's existing
+    fully-sequential apply loop) changelog check per provisional item. Items
+    whose history can't be fetched are appended to `blocked`."""
     importable = []
     conflicts = []
-
     for p in provisional:
         item = p['item']
         try:
             changelog = fetch_changelog(item['issue_release_key'])
         except NetworkError as e:
-            blocked.append({
-                'vulnerability_id': item['vulnerability_id'],
-                'package_url': item['package_url'],
-                'reason': f'could not verify SonarQube status-change history: {e}',
-            })
+            blocked.append(_blocked(item['vulnerability_id'], item['package_url'],
+                                    f'could not verify SonarQube status-change history: {e}'))
             continue
-
-        last_status_change = find_last_status_change(changelog)
-        if last_status_change is None:
-            importable.append(item)
-            continue
-
-        sonar_date = parse_date_safe(last_status_change['created_at'])
-        vex_date = parse_date_safe(p['vex_reference_date'])
-        vex_is_same_or_newer = (not p['always_conflict_on_history'] and vex_date is not None
-                                and sonar_date is not None and vex_date >= sonar_date)
-
-        if vex_is_same_or_newer:
-            importable.append(item)
-            continue
-
-        conflicts.append({
-            'item': item,
-            'vex_reference_date': p['vex_reference_date'],
-            'sonar_last_change_date': last_status_change['created_at'],
-            'sonar_last_change_user': last_status_change['user_login'] or last_status_change['user_name'],
-            'sonar_last_change_comment': last_status_change['comment'],
-        })
-
-    return importable, blocked, conflicts, unchanged
+        kind, value = _conflict_or_importable(p, changelog)
+        (importable if kind == 'importable' else conflicts).append(value)
+    return importable, conflicts
 
 
 # --- SonarQube API calls -------------------------------------------------------
@@ -600,7 +604,7 @@ def main(argv):
     parser.add_argument('--token', default=None, help='SonarQube user token. Prefer the SONAR_TOKEN environment variable over this flag if you want to avoid the token appearing in shell history or process listings. This script never embeds or stores a token itself.')
     parser.add_argument('--comment', default='', help='Optional comment added to every imported item, on the next line after the justification imported from the VEX file')
     parser.add_argument('--conflict-resolution', choices=['keep', 'apply', 'ask'], default='ask',
-                         help="How to handle a VEX entry that conflicts with a status SonarQube shows was already changed manually more recently: 'ask' (default, interactive prompt per conflict), 'keep' (never apply), 'apply' (always apply, no prompting — for CI)")
+                         help="How to handle a VEX entry that conflicts with a status change already made in SonarQube: a change made manually more recently than the VEX date, or any status-change history at all when the change is a REOPEN (an Open target never overrides a decision silently). 'ask' (default, interactive prompt per conflict), 'keep' (never apply), 'apply' (always apply, no prompting — for CI)")
     parser.add_argument('--undecided', choices=['skip', 'open'], default=None,
                         help="How to handle in_triage / missing / unrecognized analysis states: 'skip' (default, reported as not importable) or 'open' (import as Open: Open and Confirmed risks stay as they are, Accepted / Safe / Fixed risks are reopened)")
     parser.add_argument('--map', action='append', default=[], metavar='STATE=TARGET',

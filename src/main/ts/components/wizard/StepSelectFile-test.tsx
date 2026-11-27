@@ -6,13 +6,15 @@ import { RequestedBranch } from '../../utils/requestedBranch';
 import { StepSelectFile } from './StepSelectFile';
 
 jest.mock('../../api/projectBranches', () => ({
-  fetchLongLivedBranches: jest.fn(async () => [
-    { name: 'main', isMain: true, excludedFromPurge: true },
-    { name: 'release-1.0', isMain: false, excludedFromPurge: true },
-  ]),
+  fetchLongLivedBranches: jest.fn(() =>
+    Promise.resolve([
+      { name: 'main', isMain: true, excludedFromPurge: true },
+      { name: 'release-1.0', isMain: false, excludedFromPurge: true },
+    ])
+  ),
 }));
 
-function Harness({ requested }: { requested: RequestedBranch }) {
+function Harness({ requested }: Readonly<{ requested: RequestedBranch }>) {
   const [selected, setSelected] = useState<BranchInfo | null>(null);
   return (
     <StepSelectFile
